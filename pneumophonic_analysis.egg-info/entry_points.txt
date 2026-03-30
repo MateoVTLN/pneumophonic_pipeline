@@ -1,0 +1,2 @@
+[console_scripts]
+pneumophonic-analyze = pneumophonic_analysis.pipeline:main
