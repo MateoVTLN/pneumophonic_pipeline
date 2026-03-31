@@ -1,0 +1,18 @@
+# Python Virtual Environments
+venv/
+env/
+.env
+
+# Cache Python Files(compiled bytecode)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Folders for data and output
+data_root/
+data_target/
+
+# System Files for Windows/Mac
+.DS_Store
+Thumbs.db

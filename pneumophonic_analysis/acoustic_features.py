@@ -151,7 +151,7 @@ class PraatAnalyzer:
     ) -> parselmouth.Sound:
         """Crée un objet Sound Praat depuis un array numpy."""
         return parselmouth.Sound(audio, sampling_frequency=sr)
-    
+
     def _create_pitch(
         self,
         sound: parselmouth.Sound,
@@ -162,8 +162,27 @@ class PraatAnalyzer:
         f0_min = f0_min or self.config.pitch.f0_min
         f0_max = f0_max or self.config.pitch.f0_max
         
+        # --- SÉCURITÉ AJOUTÉE ---
+        if f0_min is None or np.isnan(f0_min):
+            f0_min = 75.0
+        if f0_max is None or np.isnan(f0_max):
+            f0_max = 500.0
+        # ------------------------
+        
         return call(sound, "To Pitch", 0.0, f0_min, f0_max)
-    
+    """
+    def _create_pitch(
+        self,
+        sound: parselmouth.Sound,
+        f0_min: Optional[int] = None,
+        f0_max: Optional[int] = None
+    ) -> parselmouth.Pitch:
+        #Crée un objet Pitch.
+        f0_min = f0_min or self.config.pitch.f0_min
+        f0_max = f0_max or self.config.pitch.f0_max
+        
+        return call(sound, "To Pitch", 0.0, f0_min, f0_max)
+    """
     def _create_point_process(
         self,
         sound: parselmouth.Sound,
@@ -298,7 +317,7 @@ class PraatAnalyzer:
             apq11_shimmer=apq11_shimmer,
             dda_shimmer=dda_shimmer
         )
-    
+
     def extract_hnr(
         self,
         sound: parselmouth.Sound,
@@ -319,9 +338,37 @@ class PraatAnalyzer:
         """
         f0_min = f0_min or self.config.pitch.f0_min
         
+        # --- SÉCURITÉ AJOUTÉE ---
+        if f0_min is None or np.isnan(f0_min):
+            f0_min = 75.0
+        # ------------------------
+        
         harmonicity = call(sound, "To Harmonicity (cc)", 0.01, f0_min, 0.1, 1.0)
         return call(harmonicity, "Get mean", 0, 0)
-    
+    """
+    def extract_hnr(
+        self,
+        sound: parselmouth.Sound,
+        f0_min: Optional[int] = None
+    ) -> float:
+        
+        #Extrait le Harmonics-to-Noise Ratio.
+        
+        # HNR mesure le rapport entre la composante harmonique et le bruit.
+        # Valeurs typiques: 20+ dB (voix saine), <10 dB (voix pathologique)
+        
+        # Args:
+        #    sound: Objet Sound Praat
+        #    f0_min: F0 minimum
+            
+        #Returns:
+        #    HNR en dB
+        
+        f0_min = f0_min or self.config.pitch.f0_min
+        
+        harmonicity = call(sound, "To Harmonicity (cc)", 0.01, f0_min, 0.1, 1.0)
+        return call(harmonicity, "Get mean", 0, 0)
+    """
     def extract_formants(
         self,
         sound: parselmouth.Sound,
@@ -405,6 +452,59 @@ class PraatAnalyzer:
     ) -> VoiceQualityMetrics:
         """
         Calcule le Dysphonia Severity Index.
+        """
+        cfg = self.config.dsi
+        
+        # --- SÉCURITÉ AJOUTÉE ---
+        # Si Praat n'a pas trouvé de fréquence fondamentale, on force 75.0 Hz
+        # pour éviter que la fonction "To Intensity" ne plante.
+        min_pitch_for_intensity = pitch_metrics.mean_f0
+        if min_pitch_for_intensity is None or np.isnan(min_pitch_for_intensity):
+            min_pitch_for_intensity = 75.0
+        # ------------------------
+        
+        # Intensité
+        intensity = call(sound, "To Intensity", min_pitch_for_intensity, 0.0)
+        intensity_mean = call(intensity, "Get mean", 0, 0, "energy")
+        intensity_min = call(intensity, "Get minimum", 0, 0, "Parabolic")
+        
+        # Maximum Phonation Time
+        mpt = sound.get_total_duration()
+        
+        # DSI
+        # On sécurise aussi le jitter pour éviter de multiplier par NaN
+        jitter_val = 0.0 if np.isnan(local_jitter) else local_jitter
+        jitter_percent = jitter_val * 100
+        
+        f0_high = 0.0 if np.isnan(pitch_metrics.max_f0) else pitch_metrics.max_f0
+        
+        dsi = (
+            cfg.coef_mpt * mpt +
+            cfg.coef_f0_high * f0_high +
+            cfg.coef_i_low * intensity_min +
+            cfg.coef_jitter * jitter_percent +
+            cfg.intercept
+        )
+        
+        # HNR
+        hnr = self.extract_hnr(sound)
+        
+        return VoiceQualityMetrics(
+            hnr=hnr,
+            dsi=dsi,
+            intensity_mean=intensity_mean,
+            intensity_min=intensity_min,
+            mpt=mpt
+        )
+
+    """def compute_dsi(
+        self,
+        sound: parselmouth.Sound,
+        pitch_metrics: PitchMetrics,
+        local_jitter: float
+    ) -> VoiceQualityMetrics:
+        
+        # Calcule le Dysphonia Severity Index.
         
         DSI = 0.13*MPT + 0.0053*F0_high - 0.26*I_low - 1.18*jitter% + 12.4
         
@@ -420,7 +520,7 @@ class PraatAnalyzer:
             
         Returns:
             VoiceQualityMetrics incluant le DSI
-        """
+        
         cfg = self.config.dsi
         
         # Intensité
@@ -451,7 +551,7 @@ class PraatAnalyzer:
             intensity_min=intensity_min,
             mpt=mpt
         )
-    
+    """
     def analyze_signal(
         self,
         audio: np.ndarray,

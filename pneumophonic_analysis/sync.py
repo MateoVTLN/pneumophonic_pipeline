@@ -399,3 +399,20 @@ def detect_end_of_phonation(
         return len(audio)
     
     return intervals[interval_index, 1]
+    
+def detect_phonation_bounds(audio, sr, top_db=30):
+    """
+    Détecte les indices de début et de fin de la phonation dans un signal audio.
+    Utilise librosa.effects.split pour ignorer les silences au début et à la fin.
+    """
+    intervals = librosa.effects.split(audio, top_db=top_db)
+    
+    if len(intervals) == 0:
+        # S'il ne trouve rien d'évident, on retourne tout le signal
+        return 0, len(audio)
+        
+    # On prend le début du premier intervalle sonore, et la fin du dernier
+    start_idx = intervals[0][0]
+    end_idx = intervals[-1][1]
+    
+    return start_idx, end_idx
