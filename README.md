@@ -59,13 +59,13 @@ pip install -e .
 data_root/
 ├── 20260218_GaBa/           # Format: YYYYMMDD_SubjectID
 │   ├── csv/
-│   │   └── GaBaVocali.csv   # Données OEP
+│   │   └── GaBaVocali.csv   # OEP data
 │   ├── renders/
-│   │   ├── a.wav            # Voyelle A
-│   │   ├── r.wav            # Roulée R
+│   │   ├── a.wav            # Vowel A
+│   │   ├── r.wav            # Rolled R
 │   │   └── ...
-│   ├── sync_signal.wav      # Signal de synchronisation
-│   └── GaBa_audio.xlsx      # Timings (optionnel)
+│   ├── sync_signal.wav      # Sync signal
+│   └── GaBa_audio.xlsx      # Timings 
 ├── 20260226_AnMa/
 │   └── ...
 └── ...
