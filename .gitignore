@@ -10,7 +10,7 @@ __pycache__/
 *.egg-info/
 
 # Folders for data and output
-#data_root/
+data_root/
 #data_target/
 
 # System Files for Windows/Mac
