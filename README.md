@@ -1,11 +1,11 @@
-# Pneumophonic Analysis Pipeline
+# Pneumophonic Analysis Pipeline (not definitive : will include other methods, analysis in the future)
 
-Modular Python pipeline for the integrated analysis of respiratory-phonatory functions.
-
+Modular Python pipeline for the integrated analysis of respiratory-phonatory functions + speech signals.
+Opto-electronic Plethysmography + Audio Acquisitions made by Bianca ZOCCO
 ## Description
 
 This pipeline is based on the Master's thesis work:
-> **"Integrated Analysis of Respiratory–Phonatory Functions: Normative Patterns Across Sex and Age"** > Bianca Zocco, Politecnico di Milano, 2024-2025
+> **"Integrated Analysis of Respiratory–Phonatory Functions: Normative Patterns Across Sex and Age"** > Bianca Zocco, Politecnico di Milano, aa : 2024-2025
 
 It allows the analysis of combined data from:
 - **OEP (Optoelectronic Plethysmography)**: chest wall kinematics
