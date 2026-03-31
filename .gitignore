@@ -11,7 +11,7 @@ __pycache__/
 
 # Folders for data and output
 #data_root/
-data_target/
+#data_target/
 
 # System Files for Windows/Mac
 .DS_Store
