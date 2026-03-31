@@ -1,10 +1,10 @@
 """
-Module de synchronisation pour l'alignement temporel OEP/Audio.
+Synchronisation Module for the temporal alignment OEP/Audio.
 
-La synchronisation repose sur la détection du signal sync (falling edge)
-présent à la fois dans les données OEP et dans l'enregistrement audio.
+The synchronisation is based on the detection of the sync signal (falling edge)
+present in both the OEP data and the audio recording.
 
-Référence: Thèse Zocco 2025, Section 3.5 - Data Processing and Analysis
+Reference: Zocco Thesis 2025, Section 3.5 - Data Processing and Analysis
 """
 
 import numpy as np
@@ -19,54 +19,54 @@ from .config import PipelineConfig, get_config
 
 @dataclass
 class SyncResult:
-    """Résultat de la synchronisation."""
-    
-    # Position du falling edge dans le signal sync audio (en samples)
+    """Result of the synchronization."""
+
+    # Position of the falling edge in the audio sync signal (in samples)
     sync_falling_edge_sample: int
-    
-    # Position du falling edge dans les données OEP (en samples OEP)
+
+    # Position of the falling edge in the OEP data (in OEP samples)
     oep_falling_edge_sample: int
-    
-    # Offset temporel à appliquer (en secondes)
+
+    # Time offset to apply (in seconds)
     time_offset_sec: float
-    
-    # Timestamps des onsets détectés
+
+    # Timestamps of detected onsets
     sync_onsets_samples: np.ndarray
     oep_sync_onsets_samples: np.ndarray
-    
-    # Qualité de la synchronisation
+
+    # Synchronization quality
     correlation: float = 0.0
 
 
 class Synchronizer:
     """
-    Synchronise les signaux OEP et audio via le signal sync.
-    
-    Le protocole utilise un signal de synchronisation (impulsion carrée)
-    envoyé simultanément à l'OEP (canal analogique) et à la DAW audio.
-    L'alignement se fait sur le falling edge de ce signal.
-    
-    Exemple:
+    Synchronizes OEP and audio signals via the sync signal.
+
+    The protocol uses a synchronization signal (square pulse)
+    sent simultaneously to the OEP (analog channel) and the audio DAW.
+    Alignment is performed on the falling edge of this signal.
+
+    Example:
     ```python
     sync = Synchronizer(config)
-    
-    # Détecter le falling edge dans l'audio
+
+    # Detect the falling edge in the audio
     audio_offset = sync.detect_sync_in_audio(sync_signal, sr=48000)
-    
-    # Détecter dans les données OEP
+
+    # Detect in the OEP data
     oep_offset = sync.detect_sync_in_oep(oep_df, take_number=1)
-    
-    # Aligner les données
+
+    # Align the data
     aligned_oep = sync.align_oep_to_audio(oep_df, audio_length, audio_offset, oep_offset)
     ```
     """
     
     def __init__(self, config: Optional[PipelineConfig] = None):
         """
-        Initialise le synchroniseur.
-        
+        Initializes the synchronizer.
+
         Args:
-            config: Configuration du pipeline
+            config: Pipeline configuration
         """
         self.config = config or get_config()
     
@@ -77,21 +77,21 @@ class Synchronizer:
         onset_index: int = 1
     ) -> int:
         """
-        Détecte le falling edge dans le signal sync audio.
-        
-        Le signal sync est une impulsion carrée. On utilise librosa.onset.onset_detect
-        pour trouver les transitions, puis on sélectionne celle correspondant au
-        falling edge (typiquement le 2ème onset détecté).
-        
+        Detects the falling edge in the audio sync signal.
+
+        The sync signal is a square pulse. librosa.onset.onset_detect is used
+        to find the transitions, then the one corresponding to the
+        falling edge is selected (typically the 2nd detected onset).
+
         Args:
-            sync_signal: Signal de synchronisation audio
-            sr: Fréquence d'échantillonnage
-            onset_index: Index de l'onset à utiliser (0=premier, 1=deuxième/falling)
-            
+            sync_signal: Audio synchronization signal
+            sr: Sample rate
+            onset_index: Index of the onset to use (0=first, 1=second/falling)
+
         Returns:
-            Position du falling edge en samples
+            Position of the falling edge in samples
         """
-        # Détecter les onsets
+        # Detect onsets
         onsets = librosa.onset.onset_detect(
             y=sync_signal,
             sr=sr,
@@ -100,8 +100,8 @@ class Synchronizer:
         
         if len(onsets) <= onset_index:
             raise ValueError(
-                f"Pas assez d'onsets détectés ({len(onsets)}). "
-                f"Attendu au moins {onset_index + 1}."
+                f"Not enough onsets detected ({len(onsets)}). "
+                f"Expected at least {onset_index + 1}."
             )
         
         return onsets[onset_index]
@@ -112,27 +112,27 @@ class Synchronizer:
         threshold: float = 0.5
     ) -> int:
         """
-        Détecte le falling edge par seuillage.
-        
-        Alternative à la méthode onset_detect, utile pour les signaux
-        avec un rapport signal/bruit élevé.
-        
+        Detects the falling edge by thresholding.
+
+        Alternative to the onset_detect method, useful for signals
+        with a high signal-to-noise ratio.
+
         Args:
-            sync_signal: Signal normalisé [-1, 1]
-            threshold: Seuil de détection
-            
+            sync_signal: Normalized signal [-1, 1]
+            threshold: Detection threshold
+
         Returns:
-            Position du falling edge en samples
+            Position of the falling edge in samples
         """
         sync_norm = sync_signal / (np.max(np.abs(sync_signal)) + 1e-9)
-        
-        # Trouver où le signal passe en dessous du seuil
+
+        # Find where the signal drops below the threshold
         falling_edges = np.where(
             (sync_norm[:-1] > threshold) & (sync_norm[1:] < threshold)
         )[0]
         
         if len(falling_edges) == 0:
-            raise ValueError("Aucun falling edge détecté avec le seuil spécifié")
+            raise ValueError("No falling edge detected with the specified threshold")
         
         return falling_edges[0]
     
@@ -142,16 +142,16 @@ class Synchronizer:
         prominence: Optional[float] = None
     ) -> np.ndarray:
         """
-        Détecte tous les pics du signal sync dans les données OEP.
-        
-        Chaque take du protocole génère une paire de pics (rising + falling edge).
-        
+        Detects all peaks of the sync signal in the OEP data.
+
+        Each take in the protocol generates a pair of peaks (rising + falling edge).
+
         Args:
-            oep_df: DataFrame avec colonne 'sync'
-            prominence: Prominence minimale des pics (défaut: config)
-            
+            oep_df: DataFrame with a 'sync' column
+            prominence: Minimum peak prominence (default: config)
+
         Returns:
-            Array des indices des pics
+            Array of peak indices
         """
         prominence = prominence or self.config.oep.sync_prominence
         
@@ -167,31 +167,31 @@ class Synchronizer:
         fs_oep: Optional[int] = None
     ) -> Tuple[int, float]:
         """
-        Récupère le falling edge pour un take spécifique.
-        
-        Convention: Take 1 → pic index 1 (2*1-1=1)
-                   Take 2 → pic index 3 (2*2-1=3)
+        Retrieves the falling edge for a specific take.
+
+        Convention: Take 1 → peak index 1 (2*1-1=1)
+                   Take 2 → peak index 3 (2*2-1=3)
                    etc.
-        
+
         Args:
-            oep_df: DataFrame OEP
-            take_number: Numéro du take (1-based)
-            fs_oep: Fréquence d'échantillonnage OEP
-            
+            oep_df: OEP DataFrame
+            take_number: Take number (1-based)
+            fs_oep: OEP sample rate
+
         Returns:
-            Tuple (index en samples, temps en secondes)
+            Tuple (index in samples, time in seconds)
         """
         fs_oep = fs_oep or self.config.oep.fs_kinematic
         
         peaks = self.detect_sync_onsets_oep(oep_df)
         
-        # Index du falling edge pour ce take
+        # Falling edge index for this take
         peak_index = 2 * take_number - 1
         
         if peak_index >= len(peaks):
             raise ValueError(
-                f"Take {take_number} non trouvé. "
-                f"Seulement {len(peaks) // 2} takes détectés."
+                f"Take {take_number} not found. "
+                f"Only {len(peaks) // 2} takes detected."
             )
         
         sample = peaks[peak_index]
@@ -209,36 +209,36 @@ class Synchronizer:
         audio_onset_index: int = 1
     ) -> SyncResult:
         """
-        Synchronise complètement les données audio et OEP.
-        
+        Fully synchronizes the audio and OEP data.
+
         Args:
-            sync_audio: Signal sync audio
-            sr_audio: Sample rate audio
-            oep_df: DataFrame OEP
-            take_number: Numéro du take
-            fs_oep: Sample rate OEP
-            audio_onset_index: Index de l'onset audio à utiliser
-            
+            sync_audio: Audio sync signal
+            sr_audio: Audio sample rate
+            oep_df: OEP DataFrame
+            take_number: Take number
+            fs_oep: OEP sample rate
+            audio_onset_index: Index of the audio onset to use
+
         Returns:
-            SyncResult avec tous les paramètres de synchronisation
+            SyncResult with all synchronization parameters
         """
         fs_oep = fs_oep or self.config.oep.fs_kinematic
         
-        # Falling edge audio
+        # Audio falling edge
         audio_falling_sample = self.detect_falling_edge_audio(
             sync_audio, sr_audio, audio_onset_index
         )
         audio_falling_time = audio_falling_sample / sr_audio
-        
-        # Falling edge OEP
+
+        # OEP falling edge
         oep_falling_sample, oep_falling_time = self.get_take_falling_edge_oep(
             oep_df, take_number, fs_oep
         )
-        
-        # Offset temporel
+
+        # Time offset
         time_offset = audio_falling_time - oep_falling_time
-        
-        # Onsets détectés
+
+        # Detected onsets
         audio_onsets = librosa.onset.onset_detect(
             y=sync_audio, sr=sr_audio, units='samples'
         )
@@ -259,22 +259,22 @@ class Synchronizer:
         fs_oep: Optional[int] = None
     ) -> int:
         """
-        Convertit un temps audio en index OEP.
-        
+        Converts an audio time to an OEP index.
+
         Args:
-            audio_time_sec: Temps dans le référentiel audio
-            sync_result: Résultat de synchronisation
-            fs_oep: Sample rate OEP
-            
+            audio_time_sec: Time in the audio reference frame
+            sync_result: Synchronization result
+            fs_oep: OEP sample rate
+
         Returns:
-            Index dans le DataFrame OEP
+            Index in the OEP DataFrame
         """
         fs_oep = fs_oep or self.config.oep.fs_kinematic
         
-        # Temps relatif au falling edge audio
+        # Time relative to the audio falling edge
         relative_time = audio_time_sec - (sync_result.sync_falling_edge_sample / self.config.audio.sample_rate)
-        
-        # Convertir en sample OEP
+
+        # Convert to OEP sample
         oep_sample = sync_result.oep_falling_edge_sample + int(relative_time * fs_oep)
         
         return oep_sample
@@ -288,17 +288,17 @@ class Synchronizer:
         fs_oep: Optional[int] = None
     ) -> pd.DataFrame:
         """
-        Extrait un segment OEP correspondant à une portion audio.
-        
+        Extracts an OEP segment corresponding to an audio portion.
+
         Args:
-            oep_df: DataFrame OEP complet
-            audio_start_sec: Début du segment (temps audio)
-            audio_end_sec: Fin du segment (temps audio)
-            sync_result: Résultat de synchronisation
-            fs_oep: Sample rate OEP
-            
+            oep_df: Full OEP DataFrame
+            audio_start_sec: Segment start (audio time)
+            audio_end_sec: Segment end (audio time)
+            sync_result: Synchronization result
+            fs_oep: OEP sample rate
+
         Returns:
-            DataFrame OEP pour le segment
+            OEP DataFrame for the segment
         """
         fs_oep = fs_oep or self.config.oep.fs_kinematic
         
@@ -309,7 +309,7 @@ class Synchronizer:
             audio_end_sec, sync_result, fs_oep
         )
         
-        # Borner aux limites du DataFrame
+        # Clamp to DataFrame bounds
         start_sample = max(0, start_sample)
         end_sample = min(len(oep_df), end_sample)
         
@@ -322,15 +322,15 @@ def compute_relative_timing(
     sr: int
 ) -> float:
     """
-    Calcule le temps relatif au falling edge.
-    
+    Computes the time relative to the falling edge.
+
     Args:
-        audio_sample: Position en samples audio
-        sync_falling_edge_sample: Position du falling edge
+        audio_sample: Position in audio samples
+        sync_falling_edge_sample: Position of the falling edge
         sr: Sample rate
-        
+
     Returns:
-        Temps en secondes relatif au falling edge
+        Time in seconds relative to the falling edge
     """
     return (audio_sample - sync_falling_edge_sample) / sr
 
@@ -343,20 +343,20 @@ def detect_onset_in_phonation(
     onset_index: int = 2
 ) -> int:
     """
-    Détecte le début de la phonation dans un signal audio.
-    
-    Utilise la détection d'onset de librosa. L'index permet de sauter
-    les premiers onsets qui peuvent correspondre au signal sync.
-    
+    Detects the onset of phonation in an audio signal.
+
+    Uses librosa onset detection. The index allows skipping
+    the first onsets that may correspond to the sync signal.
+
     Args:
-        audio: Signal audio (noise-reduced recommandé)
+        audio: Audio signal (noise-reduced recommended)
         sr: Sample rate
-        hop_length: Taille du hop pour l'analyse
-        delta: Sensibilité de la détection
-        onset_index: Index de l'onset à retourner (pour sauter le sync)
-        
+        hop_length: Hop size for analysis
+        delta: Detection sensitivity
+        onset_index: Index of the onset to return (to skip the sync)
+
     Returns:
-        Position du début de phonation en samples
+        Position of phonation onset in samples
     """
     onsets = librosa.onset.onset_detect(
         y=audio,
@@ -367,7 +367,7 @@ def detect_onset_in_phonation(
     )
     
     if len(onsets) <= onset_index:
-        # Fallback: retourner le dernier onset disponible
+        # Fallback: return the last available onset
         return onsets[-1] if len(onsets) > 0 else 0
     
     return onsets[onset_index]
@@ -380,18 +380,18 @@ def detect_end_of_phonation(
     interval_index: int = -1
 ) -> int:
     """
-    Détecte la fin de la phonation.
-    
-    Utilise librosa.effects.split pour trouver les intervalles non-silencieux.
-    
+    Detects the end of phonation.
+
+    Uses librosa.effects.split to find non-silent intervals.
+
     Args:
-        audio: Signal audio
+        audio: Audio signal
         sr: Sample rate
-        top_db: Seuil pour la détection du silence
-        interval_index: Index de l'intervalle (-1 = dernier)
-        
+        top_db: Threshold for silence detection
+        interval_index: Interval index (-1 = last)
+
     Returns:
-        Position de fin de phonation en samples
+        Position of phonation end in samples
     """
     intervals = librosa.effects.split(audio, top_db=top_db)
     
@@ -399,19 +399,19 @@ def detect_end_of_phonation(
         return len(audio)
     
     return intervals[interval_index, 1]
-    
+
 def detect_phonation_bounds(audio, sr, top_db=30):
     """
-    Détecte les indices de début et de fin de la phonation dans un signal audio.
-    Utilise librosa.effects.split pour ignorer les silences au début et à la fin.
+    Detects the start and end indices of phonation in an audio signal.
+    Uses librosa.effects.split to ignore silence at the beginning and end.
     """
     intervals = librosa.effects.split(audio, top_db=top_db)
     
     if len(intervals) == 0:
-        # S'il ne trouve rien d'évident, on retourne tout le signal
+        # If nothing obvious is found, return the full signal
         return 0, len(audio)
-        
-    # On prend le début du premier intervalle sonore, et la fin du dernier
+
+    # Take the start of the first non-silent interval and the end of the last
     start_idx = intervals[0][0]
     end_idx = intervals[-1][1]
     

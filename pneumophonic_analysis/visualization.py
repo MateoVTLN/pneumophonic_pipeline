@@ -1,14 +1,14 @@
 """
-Module de visualisation pour le pipeline pneumophonique.
+Visualization module for the pneumophonic pipeline.
 
-Graphiques:
-- Formes d'onde avec sync
-- Spectrogrammes et mel-spectrogrammes
-- Traces de F0
-- Volumes OEP avec zones FRC
-- Résultats comparatifs
+Plots:
+- Waveforms with sync
+- Spectrograms and mel-spectrograms
+- F0 traces
+- OEP volumes with FRC zones
+- Comparative results
 
-Référence: Thèse Zocco 2025, Chapitre 4 - Figures
+Reference: Zocco Thesis 2025, Chapter 4 - Figures
 """
 
 import numpy as np
@@ -26,7 +26,7 @@ from .task_analyzers import TaskResult
 from .segmentation import FRCSegment, GlideSegment
 
 
-# Style par défaut
+# Default style
 plt.style.use('seaborn-v0_8-whitegrid')
 COLORS = {
     'audio': '#2E86AB',
@@ -43,22 +43,22 @@ COLORS = {
 
 class Visualizer:
     """
-    Classe principale de visualisation.
-    
-    Exemple:
+    Main visualization class.
+
+    Example:
     ```python
     viz = Visualizer(config)
-    
-    # Plot simple
+
+    # Simple plot
     fig = viz.plot_waveform(audio, sr)
-    
-    # Plot avec sync
+
+    # Plot with sync
     fig = viz.plot_audio_with_sync(audio, sync, sr)
-    
-    # Plot complet d'un résultat
+
+    # Full plot of a result
     fig = viz.plot_task_result(result)
-    
-    # Sauvegarder
+
+    # Save
     viz.save_figure(fig, "output.png")
     ```
     """
@@ -78,18 +78,18 @@ class Visualizer:
         alpha: float = 0.8
     ) -> plt.Figure:
         """
-        Affiche la forme d'onde.
-        
+        Plots the waveform.
+
         Args:
-            audio: Signal audio
+            audio: Audio signal
             sr: Sample rate
-            title: Titre du graphique
-            ax: Axes matplotlib (créé si None)
-            color: Couleur de la courbe
-            alpha: Transparence
-            
+            title: Plot title
+            ax: Matplotlib axes (created if None)
+            color: Line color
+            alpha: Transparency
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 3))
@@ -117,18 +117,18 @@ class Visualizer:
         title: str = "Audio with Sync Signal"
     ) -> plt.Figure:
         """
-        Affiche l'audio et le signal de sync.
-        
+        Plots the audio and sync signal.
+
         Args:
-            audio: Signal audio
-            sync: Signal de synchronisation
-            sr_audio: Sample rate audio
-            sr_sync: Sample rate sync (= sr_audio si None)
-            falling_edge_sample: Position du falling edge
-            title: Titre
-            
+            audio: Audio signal
+            sync: Synchronization signal
+            sr_audio: Audio sample rate
+            sr_sync: Sync sample rate (= sr_audio if None)
+            falling_edge_sample: Position of the falling edge
+            title: Title
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         sr_sync = sr_sync or sr_audio
         
@@ -147,7 +147,7 @@ class Visualizer:
         axes[1].set_xlabel('Time (s)')
         axes[1].set_title('Sync Signal')
         
-        # Marquer le falling edge
+        # Mark the falling edge
         if falling_edge_sample is not None:
             t_edge = falling_edge_sample / sr_audio
             for ax in axes:
@@ -172,20 +172,20 @@ class Visualizer:
         cmap: str = 'magma'
     ) -> plt.Figure:
         """
-        Affiche le spectrogramme.
-        
+        Plots the spectrogram.
+
         Args:
-            audio: Signal audio
+            audio: Audio signal
             sr: Sample rate
-            n_fft: Taille FFT
+            n_fft: FFT size
             hop_length: Hop length
-            title: Titre
-            ax: Axes matplotlib
-            y_axis: Échelle de l'axe y ('log', 'linear', 'mel')
+            title: Title
+            ax: Matplotlib axes
+            y_axis: Y-axis scale ('log', 'linear', 'mel')
             cmap: Colormap
-            
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 4))
@@ -213,7 +213,7 @@ class Visualizer:
         title: str = "Mel Spectrogram",
         ax: Optional[plt.Axes] = None
     ) -> plt.Figure:
-        """Affiche le mel-spectrogramme."""
+        """Plots the mel-spectrogram."""
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 4))
         else:
@@ -241,18 +241,18 @@ class Visualizer:
         show_stats: bool = True
     ) -> plt.Figure:
         """
-        Affiche la trace de F0.
-        
+        Plots the F0 trace.
+
         Args:
-            f0: Valeurs de F0 (peut contenir NaN)
-            hop_length: Hop length utilisé
+            f0: F0 values (may contain NaN)
+            hop_length: Hop length used
             sr: Sample rate
-            title: Titre
-            ax: Axes matplotlib
-            show_stats: Afficher les statistiques
-            
+            title: Title
+            ax: Matplotlib axes
+            show_stats: Display statistics
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 3))
@@ -290,18 +290,18 @@ class Visualizer:
         ax: Optional[plt.Axes] = None
     ) -> plt.Figure:
         """
-        Affiche le volume de la paroi thoracique avec zones FRC.
-        
+        Plots the chest wall volume with FRC zones.
+
         Args:
-            volume: Volume (Vcw) en litres
-            fs_oep: Sample rate OEP
-            frc_level: Niveau de la FRC
-            frc_cross_sample: Sample du crossing FRC
-            title: Titre
-            ax: Axes matplotlib
-            
+            volume: Volume (Vcw) in liters
+            fs_oep: OEP sample rate
+            frc_level: FRC level
+            frc_cross_sample: FRC crossing sample
+            title: Title
+            ax: Matplotlib axes
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 4))
@@ -319,7 +319,7 @@ class Visualizer:
             ax.axhline(frc_level, color='black', linestyle='--', 
                       linewidth=2, label='FRC')
             
-            # Colorer les zones
+            # Color the zones
             ax.fill_between(
                 time, volume, frc_level,
                 where=(volume >= frc_level),
@@ -345,26 +345,26 @@ class Visualizer:
         title: str = "FRC Segmentation"
     ) -> plt.Figure:
         """
-        Affiche un segment avec sa segmentation FRC.
-        
+        Plots a segment with its FRC segmentation.
+
         Args:
             segment: FRCSegment
-            title: Titre
-            
+            title: Title
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         fig, axes = plt.subplots(2, 1, figsize=(12, 6))
         
         sr = segment.sample_rate
         
-        # Audio complet avec zones
+        # Full audio with zones
         full_audio = np.concatenate([segment.above_frc, segment.below_frc])
         time = np.arange(len(full_audio)) / sr
         
         axes[0].plot(time, full_audio, color=COLORS['audio'], alpha=0.7, linewidth=0.5)
         
-        # Zones colorées
+        # Colored zones
         t_cross = len(segment.above_frc) / sr
         axes[0].axvspan(0, t_cross, alpha=0.2, color=COLORS['above_frc'], 
                        label=f'Above FRC ({segment.duration_above:.2f}s)')
@@ -375,7 +375,7 @@ class Visualizer:
         axes[0].set_title('Full Segment with FRC Zones')
         axes[0].legend(loc='upper right')
         
-        # Segments séparés
+        # Separated segments
         time_above = np.arange(len(segment.above_frc)) / sr
         time_below = np.arange(len(segment.below_frc)) / sr + t_cross
         
@@ -403,23 +403,23 @@ class Visualizer:
         title: str = "Glide Analysis"
     ) -> plt.Figure:
         """
-        Affiche l'analyse du glissando.
-        
+        Plots the glide analysis.
+
         Args:
-            audio: Signal audio complet
+            audio: Full audio signal
             sr: Sample rate
             segment: GlideSegment
-            novelty: Novelty function (optionnel)
-            novelty_time: Axe temporel de la novelty
-            title: Titre
-            
+            novelty: Novelty function (optional)
+            novelty_time: Time axis of the novelty
+            title: Title
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         n_rows = 3 if novelty is not None else 2
         fig, axes = plt.subplots(n_rows, 1, figsize=(12, 3 * n_rows))
         
-        # Waveform avec zones P1/P2
+        # Waveform with P1/P2 zones
         time = np.arange(len(audio)) / sr
         axes[0].plot(time, audio, color=COLORS['audio'], alpha=0.7, linewidth=0.5)
         
@@ -437,7 +437,7 @@ class Visualizer:
         axes[0].set_title('Waveform with P1/P2 Segmentation')
         axes[0].legend()
         
-        # Spectrogramme
+        # Spectrogram
         S = librosa.stft(audio)
         S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
         librosa.display.specshow(
@@ -468,15 +468,15 @@ class Visualizer:
         include_f0: bool = True
     ) -> plt.Figure:
         """
-        Affiche un résultat de tâche complet.
-        
+        Plots a complete task result.
+
         Args:
             result: TaskResult
-            include_spectrogram: Inclure le spectrogramme
-            include_f0: Inclure la trace de F0
-            
+            include_spectrogram: Include the spectrogram
+            include_f0: Include the F0 trace
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         n_rows = 1 + int(include_spectrogram) + int(include_f0)
         fig, axes = plt.subplots(n_rows, 1, figsize=(12, 3 * n_rows))
@@ -527,16 +527,16 @@ class Visualizer:
         title: Optional[str] = None
     ) -> plt.Figure:
         """
-        Compare une métrique entre groupes.
-        
+        Compares a metric across groups.
+
         Args:
-            df: DataFrame avec les métriques
-            metric: Nom de la colonne métrique
-            group_by: Colonne pour le groupement
-            title: Titre du graphique
-            
+            df: DataFrame with metrics
+            metric: Metric column name
+            group_by: Column to group by
+            title: Plot title
+
         Returns:
-            Figure matplotlib
+            Matplotlib figure
         """
         fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -548,7 +548,7 @@ class Visualizer:
         ax.set_xlabel(metric)
         ax.set_title(title or f'{metric} by {group_by}')
         
-        # Ajouter les valeurs
+        # Add values
         for i, (idx, val) in enumerate(groups.items()):
             ax.text(val + 0.01 * groups.max(), i, f'{val:.2f}', va='center')
         
@@ -564,13 +564,13 @@ class Visualizer:
         format: Optional[str] = None
     ):
         """
-        Sauvegarde une figure.
-        
+        Saves a figure.
+
         Args:
-            fig: Figure matplotlib
-            path: Chemin de sortie
-            dpi: Résolution (défaut: config)
-            format: Format d'image (défaut: config)
+            fig: Matplotlib figure
+            path: Output path
+            dpi: Resolution (default: config)
+            format: Image format (default: config)
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -583,7 +583,7 @@ class Visualizer:
 
 
 def quick_plot_audio(audio: np.ndarray, sr: int, title: str = "Audio"):
-    """Fonction utilitaire pour un plot rapide."""
+    """Utility function for a quick plot."""
     viz = Visualizer()
     fig = viz.plot_waveform(audio, sr, title)
     plt.show()
@@ -591,7 +591,7 @@ def quick_plot_audio(audio: np.ndarray, sr: int, title: str = "Audio"):
 
 
 def quick_plot_spectrogram(audio: np.ndarray, sr: int, title: str = "Spectrogram"):
-    """Fonction utilitaire pour un spectrogramme rapide."""
+    """Utility function for a quick spectrogram."""
     viz = Visualizer()
     fig = viz.plot_spectrogram(audio, sr, title)
     plt.show()

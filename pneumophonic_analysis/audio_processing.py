@@ -1,13 +1,13 @@
 """
-Module de traitement du signal audio.
+Audio signal processing module.
 
-Fonctionnalités:
-- Réduction du bruit (noisereduce)
-- Filtre de pré-emphasis
-- Extraction de features spectrales (STFT, Mel, MFCCs)
-- Estimation de F0 (pyin)
+Features:
+- Noise reduction (noisereduce)
+- Pre-emphasis filter
+- Spectral feature extraction (STFT, Mel, MFCCs)
+- F0 estimation (pyin)
 
-Référence: Thèse Zocco 2025, Section 3.5.3 - Acoustic Signal Processing
+Reference: Zocco Thesis 2025, Section 3.5.3 - Acoustic Signal Processing
 """
 
 import numpy as np
@@ -23,56 +23,56 @@ from .config import PipelineConfig, get_config
 class AudioFeatures:
     """Container pour les features audio extraites."""
     
-    # Représentations spectrales
-    stft: np.ndarray                  # Spectre de puissance
-    mel_spectrogram: np.ndarray       # Mel-spectrogramme
-    mfcc: np.ndarray                  # Coefficients MFCC
+    # Spectral representations
+    stft: np.ndarray                  # Power spectrum
+    mel_spectrogram: np.ndarray       # Mel spectrogram
+    mfcc: np.ndarray                  # MFCC coefficients
     
     # Pitch
-    f0: np.ndarray                    # Fréquence fondamentale
-    voiced_flag: np.ndarray           # Indicateur voix/non-voix
-    voiced_probs: np.ndarray          # Probabilités de voisement
+    f0: np.ndarray                    # Fundamental frequency
+    voiced_flag: np.ndarray           # Voiced/unvoiced indicator
+    voiced_probs: np.ndarray          # Voicing probabilities
     
-    # Harmoniques
+    # Harmonics
     f0_harmonics: Optional[np.ndarray] = None
     
-    # Métadonnées
+    # Metadata
     sample_rate: int = 48000
     hop_length: int = 720
     frame_length: int = 1440
     
     @property
     def time_axis(self) -> np.ndarray:
-        """Retourne l'axe temporel en secondes."""
+        """Returns the temporal axis in seconds."""
         n_frames = self.f0.shape[0]
         return np.arange(n_frames) * self.hop_length / self.sample_rate
 
 
 class AudioProcessor:
     """
-    Processeur audio pour le pipeline pneumophonique.
+    Audio processor for the pneumophonic pipeline.
     
-    Exemple:
+    Example usage:
     ```python
     processor = AudioProcessor(config)
     
-    # Réduction du bruit
+    # Noise reduction
     audio_clean = processor.reduce_noise(audio, sr)
     
-    # Pré-emphasis
+    # Pre-emphasis
     audio_pe = processor.apply_pre_emphasis(audio_clean)
     
-    # Extraction complète
+    # Complete feature extraction
     features = processor.extract_features(audio_pe, sr)
     ```
     """
     
     def __init__(self, config: Optional[PipelineConfig] = None):
         """
-        Initialise le processeur.
+        Initializes the processor.
         
         Args:
-            config: Configuration du pipeline
+            config: Pipeline configuration
         """
         self.config = config or get_config()
     
@@ -84,19 +84,19 @@ class AudioProcessor:
         prop_decrease: Optional[float] = None
     ) -> np.ndarray:
         """
-        Applique la réduction de bruit au signal.
+        Applies noise reduction to the audio signal.
         
-        Utilise l'algorithme spectral de la librairie noisereduce.
-        Le bruit OEP (caméras IR, ventilation) est principalement stationnaire.
+        Uses the spectral algorithm from the noisereduce library.
+        OEP noise (IR cameras, ventilation) is primarily stationary.
         
         Args:
-            audio: Signal audio brut
-            sr: Fréquence d'échantillonnage
-            stationary: Utiliser le mode stationnaire (défaut: config)
-            prop_decrease: Proportion de réduction (0-1, défaut: config)
+            audio: Raw audio signal
+            sr: Sampling frequency
+            stationary: Use stationary mode (default: config)
+            prop_decrease: Proportion of reduction (0-1, default: config)
             
         Returns:
-            Signal audio débruité
+            Denoised audio signal
         """
         stationary = stationary if stationary is not None else \
             self.config.audio.noise_reduction_stationary
@@ -110,7 +110,7 @@ class AudioProcessor:
             prop_decrease=prop_decrease
         )
         
-        # Normalisation
+        # Normalization
         max_val = np.max(np.abs(audio_nr))
         if max_val > 0:
             audio_nr = audio_nr / max_val
@@ -124,27 +124,27 @@ class AudioProcessor:
         normalize: bool = True
     ) -> np.ndarray:
         """
-        Applique un filtre de pré-emphasis.
+        Applies a pre-emphasis filter.
         
-        Le filtre de pré-emphasis amplifie les hautes fréquences
-        pour compenser l'atténuation naturelle du spectre vocal.
-        Équation: y[n] = x[n] - coef * x[n-1]
+        The pre-emphasis filter amplifies high frequencies
+        to compensate for the natural attenuation of the vocal spectrum.
+        Equation: y[n] = x[n] - coef * x[n-1]
         
         Args:
-            audio: Signal audio
-            coef: Coefficient de pré-emphasis (défaut: 0.97)
-            normalize: Normaliser l'énergie après filtrage
+            audio: Audio signal
+            coef: Pre-emphasis coefficient (default: 0.97)
+            normalize: Normalize energy after filtering
             
         Returns:
-            Signal filtré
+            Filtered signal
         """
         coef = coef if coef is not None else self.config.audio.pre_emphasis_coef
         
-        # Filtre de pré-emphasis
+        # Pre-emphasis filter implementation
         audio_pe = np.append(audio[0], audio[1:] - coef * audio[:-1])
         
         if normalize:
-            # Normalisation par la norme L2 (énergie unitaire)
+            # Normalization by L2 norm (unit energy)
             norm = np.linalg.norm(audio_pe)
             if norm > 0:
                 audio_pe = audio_pe / norm
@@ -159,16 +159,16 @@ class AudioProcessor:
         power: float = 2.0
     ) -> np.ndarray:
         """
-        Calcule le spectrogramme de puissance.
+        Computes the power spectrogram.
         
         Args:
-            audio: Signal audio
-            n_fft: Taille de la FFT (défaut: config frame_length)
-            hop_length: Taille du hop (défaut: config)
-            power: Exposant pour le spectre de puissance
+            audio: Audio signal
+            n_fft: FFT size (default: config frame_length)
+            hop_length: Hop size (default: config)
+            power: Exponent for power spectrum
             
         Returns:
-            Spectrogramme de puissance |STFT|^power
+            Power spectrogram |STFT|^power
         """
         n_fft = n_fft or self.config.audio.frame_length_samples
         hop_length = hop_length or self.config.audio.hop_length_samples
@@ -191,17 +191,17 @@ class AudioProcessor:
         hop_length: Optional[int] = None
     ) -> np.ndarray:
         """
-        Calcule le mel-spectrogramme.
+        Computes the mel-spectrogram.
         
         Args:
-            audio: Signal audio
-            sr: Fréquence d'échantillonnage
-            n_mels: Nombre de bandes mel (défaut: config)
-            n_fft: Taille de la FFT
-            hop_length: Taille du hop
+            audio: Audio signal
+            sr: Sampling frequency
+            n_mels: Number of mel bands (default: config)
+            n_fft: FFT size (default: config)
+            hop_length: Hop size (default: config)
             
         Returns:
-            Mel-spectrogramme
+            Mel-spectrogram
         """
         n_mels = n_mels or self.config.audio.n_mels
         n_fft = n_fft or self.config.audio.frame_length_samples
@@ -224,16 +224,16 @@ class AudioProcessor:
         normalize: Optional[bool] = None
     ) -> np.ndarray:
         """
-        Calcule les coefficients MFCC.
+            Calcule les coefficients MFCC.
         
         Args:
-            audio: Signal audio
-            sr: Fréquence d'échantillonnage
-            n_mfcc: Nombre de coefficients (défaut: 13)
-            normalize: Normaliser (mean=0, std=1) par coefficient
+            audio:  Audio signal
+            sr: Sampling frequency
+            n_mfcc: Number of coefficients (default: 13)
+            normalize: Normalize (mean=0, std=1) by coefficient
             
         Returns:
-            Matrice MFCC (n_mfcc x n_frames)
+            Matrix MFCC (n_mfcc x n_frames)
         """
         n_mfcc = n_mfcc or self.config.audio.n_mfcc
         normalize = normalize if normalize is not None else self.config.audio.normalize_mfcc
@@ -241,10 +241,10 @@ class AudioProcessor:
         mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=n_mfcc)
         
         if normalize:
-            # Normalisation z-score par coefficient
+            # Normalisation z-score by coefficient
             mean = np.mean(mfcc, axis=1, keepdims=True)
             std = np.std(mfcc, axis=1, keepdims=True)
-            std[std == 0] = 1  # Éviter division par zéro
+            std[std == 0] = 1  # Avoid division by zero
             mfcc = (mfcc - mean) / std
         
         return mfcc
@@ -258,20 +258,20 @@ class AudioProcessor:
         hop_length: Optional[int] = None
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Estime la fréquence fondamentale avec pYIN.
+        Estimates the fundamental frequency using pYIN.
         
         Args:
-            audio: Signal audio
-            sr: Fréquence d'échantillonnage
-            fmin: F0 minimum (défaut: 50 Hz)
-            fmax: F0 maximum (défaut: 500 Hz)
-            hop_length: Taille du hop
+            audio: Audio signal
+            sr: Sampling frequency
+            fmin: Minimum F0 (default: 50 Hz)
+            fmax: Maximum F0 (default: 500 Hz)
+            hop_length: Hop size
             
         Returns:
             Tuple (f0, voiced_flag, voiced_probs)
-            - f0: Fréquence fondamentale (NaN si non-voisé)
-            - voiced_flag: Booléen voisé/non-voisé
-            - voiced_probs: Probabilité de voisement
+            - f0: Fundamental frequency (NaN if unvoiced)
+            - voiced_flag: Voiced/unvoiced boolean
+            - voiced_probs: Voicing probability
         """
         fmin = fmin or self.config.pitch.f0_min
         fmax = fmax or self.config.pitch.f0_max
@@ -297,17 +297,17 @@ class AudioProcessor:
         harmonics: np.ndarray = None
     ) -> np.ndarray:
         """
-        Extrait l'énergie des harmoniques de F0.
+        Extracts the energy of F0 harmonics.
         
         Args:
-            stft_power: Spectrogramme de puissance
-            f0: Fréquence fondamentale
+            stft_power: Power spectrogram
+            f0: Fundamental frequency
             sr: Sample rate
-            n_fft: Taille FFT utilisée
-            harmonics: Indices des harmoniques (défaut: [1, 2, 3])
+            n_fft: FFT size used
+            harmonics: Harmonic indices (default: [1, 2, 3])
             
         Returns:
-            Énergie par harmonique (n_harmonics x n_frames)
+            Energy per harmonic (n_harmonics x n_frames)
         """
         if harmonics is None:
             harmonics = np.arange(1, 4)
@@ -328,27 +328,27 @@ class AudioProcessor:
         include_harmonics: bool = True
     ) -> AudioFeatures:
         """
-        Extrait toutes les features audio.
+        Extracts all audio features.
         
-        Pipeline complet:
-        1. STFT → Spectrogramme de puissance
-        2. Mel-spectrogram
+        Complete pipeline:
+        1. STFT → Power spectrogram
+        2. Mel spectrogram
         3. MFCCs
         4. F0 (pYIN)
-        5. Harmoniques F0 (optionnel)
+        5. F0 harmonics (optional)
         
         Args:
-            audio: Signal audio (pré-traité recommandé)
-            sr: Fréquence d'échantillonnage
-            include_harmonics: Calculer les harmoniques de F0
+            audio: Audio signal (pre-processed recommended)
+            sr: Sampling frequency
+            include_harmonics: Compute F0 harmonics
             
         Returns:
-            AudioFeatures avec toutes les représentations
+            AudioFeatures with all representations
         """
         n_fft = self.config.audio.frame_length_samples
         hop_length = self.config.audio.hop_length_samples
         
-        # Spectrogrammes
+        # Spectrograms
         stft = self.compute_stft(audio, n_fft=n_fft, hop_length=hop_length)
         mel = self.compute_mel_spectrogram(audio, sr, n_fft=n_fft, hop_length=hop_length)
         mfcc = self.compute_mfcc(audio, sr)
@@ -356,7 +356,7 @@ class AudioProcessor:
         # Pitch
         f0, voiced_flag, voiced_probs = self.estimate_f0(audio, sr, hop_length=hop_length)
         
-        # Harmoniques
+        # Harmonics
         f0_harm = None
         if include_harmonics:
             f0_harm = self.compute_f0_harmonics(stft, f0, sr, n_fft)
@@ -382,16 +382,16 @@ class AudioProcessor:
         apply_pre_emphasis: bool = True
     ) -> Tuple[np.ndarray, AudioFeatures]:
         """
-        Pipeline complet de traitement.
+        Complete processing pipeline.
         
         Args:
-            audio: Signal audio brut
-            sr: Fréquence d'échantillonnage
-            apply_noise_reduction: Appliquer réduction de bruit
-            apply_pre_emphasis: Appliquer pré-emphasis
+            audio: Raw audio signal
+            sr: Sampling frequency
+            apply_noise_reduction: Apply noise reduction
+            apply_pre_emphasis: Apply pre-emphasis
             
         Returns:
-            Tuple (audio traité, features)
+            Tuple (processed audio, features)
         """
         processed = audio.copy()
         
@@ -412,15 +412,15 @@ def to_db(
     amin: float = 1e-10
 ) -> np.ndarray:
     """
-    Convertit un spectrogramme en dB.
+    Converts a spectrogram to dB.
     
     Args:
-        spectrogram: Spectrogramme linéaire
-        ref: Valeur de référence
-        amin: Amplitude minimale (évite log(0))
+        spectrogram: Linear spectrogram
+        ref: Reference value
+        amin: Minimum amplitude (avoids log(0))
         
     Returns:
-        Spectrogramme en dB
+        Spectrogram in dB
     """
     return 10 * np.log10(np.maximum(spectrogram, amin) / ref)
 
@@ -432,19 +432,19 @@ def compute_spectral_centroid(
     hop_length: int = 512
 ) -> np.ndarray:
     """
-    Calcule le centroïde spectral.
+        Calcule le centroïde spectral.
     
-    Le centroïde spectral représente le "centre de masse" du spectre.
-    Utilisé pour la novelty function dans l'analyse du glissando.
+    The spectral centroid represents the "center of mass" of the spectrum.
+    Used for the novelty function in glissando analysis.
     
     Args:
-        audio: Signal audio
+        audio: Audio signal
         sr: Sample rate
-        n_fft: Taille FFT
+        n_fft: FFT size
         hop_length: Hop length
         
     Returns:
-        Centroïde spectral (Hz) par frame
+        Spectral centroid (Hz) per frame
     """
     stft = np.abs(librosa.stft(y=audio, n_fft=n_fft, hop_length=hop_length))
     centroid = librosa.feature.spectral_centroid(S=stft, sr=sr)[0]
@@ -457,15 +457,15 @@ def compute_rms_envelope(
     hop_length: int = 128
 ) -> np.ndarray:
     """
-    Calcule l'enveloppe RMS du signal.
+    Computes the RMS envelope of the signal.
     
     Args:
-        audio: Signal audio
-        frame_length: Taille de la fenêtre
-        hop_length: Taille du hop
+        audio: Audio signal
+        frame_length: Window size
+        hop_length: Hop size
         
     Returns:
-        Enveloppe RMS
+        RMS envelope
     """
     return librosa.feature.rms(
         y=audio,

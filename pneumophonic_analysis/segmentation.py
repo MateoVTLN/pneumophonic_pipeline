@@ -1,13 +1,12 @@
 """
-Module de segmentation des signaux.
-
-Implémente différentes méthodes de segmentation:
+Segmentation module for pneumophonic analysis.
+Implement different segmentation methods:
 - Crossing FRC (Above/Below Functional Residual Capacity)
-- Novelty function pour le glissando (P1/P2)
-- Fréquence de modulation pour la roulée R
-- Détection de silence et intervalles actifs
+- Novelty function for the glissando (P1/P2)
+- Modulation frequency for the roll R
+- Silence detection and active intervals
 
-Référence: Thèse Zocco 2025, Sections 3.7.2-3.7.4
+RReference: Zocco 2025 Thesis, Sections 3.7.2-3.7.4
 """
 
 import numpy as np
@@ -24,76 +23,76 @@ from .config import PipelineConfig, get_config
 class FRCSegment:
     """Segment relatif à la FRC."""
     
-    # Indices (en samples audio)
+    # Indexes (audio samples)
     start_sample: int
     end_sample: int
     frc_cross_sample: int
     
-    # Segments audio
+    # audio segments
     above_frc: np.ndarray
     below_frc: np.ndarray
     
-    # Métadonnées
-    duration_above: float  # secondes
-    duration_below: float  # secondes
+    # Metadata
+    duration_above: float  # seconds
+    duration_below: float  # seconds
     sample_rate: int
     
     @property
     def above_frc_duration_percent(self) -> float:
-        """Pourcentage de temps passé au-dessus de la FRC."""
+        """Percentage of time spent above the FRC."""
         total = self.duration_above + self.duration_below
         return (self.duration_above / total * 100) if total > 0 else 0
 
 
 @dataclass
 class GlideSegment:
-    """Segmentation du glissando en P1 (basses fréquences) et P2 (hautes)."""
+    """Glissando segment in P1 (low frequencies) and P2 (high frequencies)."""
     
     # Indices
     start_sample: int
-    peak_sample: int  # Point de transition spectrale maximale
+    peak_sample: int  # Point of maximum spectral transition
     end_sample: int
     
-    # Segments audio
-    part1: np.ndarray  # Portion basses fréquences
-    part2: np.ndarray  # Portion hautes fréquences
+    # audio segments
+    part1: np.ndarray  # Portion low frequencies
+    part2: np.ndarray  # Portion high frequencies
     
-    # Temps
+    # Times
     peak_time: float
     duration_p1: float
     duration_p2: float
     
-    # Valeur de la novelty function au pic
+    # Value of the novelty function at the peak
     peak_novelty_value: float
 
 
 @dataclass
 class ModulationResult:
-    """Résultat de l'analyse de fréquence de modulation (roulée R)."""
+    """RResult of the modulation frequency analysis (roll R)."""
     
-    frequency_full: float      # Fréquence sur tout le segment
-    frequency_above_frc: float # Fréquence au-dessus de la FRC
-    frequency_below_frc: float # Fréquence en-dessous de la FRC
+    frequency_full: float      # Frequency over the entire segment
+    frequency_above_frc: float # Frequency above the FRC
+    frequency_below_frc: float # Frequency below the FRC
     
-    # Enveloppe et spectre (pour visualisation)
+    # Enveloppe and spectrum for debugging/analysis
     rms_envelope: Optional[np.ndarray] = None
     modulation_spectrum: Optional[np.ndarray] = None
 
 
 class FRCSegmenter:
     """
-    Segmente la phonation selon le seuil FRC.
+    Segments the phonation according to the FRC threshold.
     
-    La FRC (Functional Residual Capacity) est le volume pulmonaire
-    à la fin d'une expiration passive. La phonation au-dessus de
-    la FRC utilise le recul élastique, celle en-dessous nécessite
-    un effort musculaire actif.
+    The FRC (Functional Residual Capacity) is the pulmonary volume
+    at the end of a passive expiration. Phonation above
+    the FRC uses elastic recoil, that below requires
+    active muscle effort.
     
-    Exemple:
+    Example usage  :
     ```python
     segmenter = FRCSegmenter()
     
-    # Avec les données OEP
+    # With OEP data
     segment = segmenter.segment_by_frc(
         audio=audio,
         oep_volume=volume_trace,
@@ -102,7 +101,7 @@ class FRCSegmenter:
         sr_oep=50
     )
     
-    # Analyse séparée
+    # Separate analysis of the two parts
     result_above = analyze(segment.above_frc)
     result_below = analyze(segment.below_frc)
     ```
@@ -117,23 +116,23 @@ class FRCSegmenter:
         frc_level: float
     ) -> int:
         """
-        Trouve l'instant où le volume croise la FRC (en descendant).
+        Finds the instant where the volume crosses the FRC (descending).
         
         Args:
-            volume: Trace de volume (Vcw)
-            frc_level: Niveau de la FRC
+            volume: Volume trace (Vcw)
+            frc_level: FRC level
             
         Returns:
-            Index du crossing
+            Index of the crossing
         """
-        # Chercher où le volume passe en-dessous de la FRC
+        # Find where the volume passes below the FRC
         below_frc = volume < frc_level
         
-        # Trouver le premier passage (descente)
+        # Find the first crossing (descending)
         crossings = np.where(np.diff(below_frc.astype(int)) == 1)[0]
         
         if len(crossings) == 0:
-            # Pas de crossing trouvé, retourner le milieu
+            # No crossing found, return the middle
             return len(volume) // 2
         
         return crossings[0]
@@ -149,33 +148,33 @@ class FRCSegmenter:
         phonation_end: int
     ) -> FRCSegment:
         """
-        Segmente l'audio selon le seuil FRC.
+        Segments the audio according to the FRC threshold.
         
         Args:
-            audio: Signal audio
-            oep_volume: Volume de la paroi thoracique (Vcw)
-            frc_level: Niveau de la FRC
-            sr_audio: Sample rate audio
-            sr_oep: Sample rate OEP
-            phonation_start: Début de phonation (samples audio)
-            phonation_end: Fin de phonation (samples audio)
+            audio: Audio signal
+            oep_volume: Chest wall volume (Vcw)
+            frc_level: FRC level
+            sr_audio: Audio sample rate
+            sr_oep: OEP sample rate
+            phonation_start: Start of phonation (audio samples)
+            phonation_end: End of phonation (audio samples)
             
         Returns:
-            FRCSegment avec les deux parties
+            FRCSegment with the two parts
         """
-        # Extraire la portion de volume correspondant à la phonation
+        # Extract the portion of volume corresponding to the phonation
         oep_start = int(phonation_start / sr_audio * sr_oep)
         oep_end = int(phonation_end / sr_audio * sr_oep)
         volume_segment = oep_volume[oep_start:oep_end]
         
-        # Trouver le crossing FRC dans le volume
+        # Find the FRC crossing in the volume
         crossing_oep = self.find_frc_crossing(volume_segment, frc_level)
         
-        # Convertir en sample audio
+        # Convert to audio samples
         crossing_audio = int(crossing_oep / sr_oep * sr_audio)
         frc_cross_sample = phonation_start + crossing_audio
         
-        # Découper l'audio
+        # Segment the audio
         audio_segment = audio[phonation_start:phonation_end]
         above_frc = audio_segment[:crossing_audio]
         below_frc = audio_segment[crossing_audio:]
@@ -200,16 +199,16 @@ class FRCSegmenter:
         sr: int
     ) -> FRCSegment:
         """
-        Segmente l'audio avec un temps de crossing fourni.
+        Segments the audio with a provided crossing time.
         
-        Utilisé quand le temps de crossing FRC est déjà connu
-        (ex: depuis un fichier Excel).
+        Used when the FRC crossing time is already known
+        (e.g., from an Excel file).
         
         Args:
             audio: Signal audio
-            cross_time: Temps du crossing (secondes)
-            start_time: Début de phonation (secondes)
-            end_time: Fin de phonation (secondes)
+            cross_time: Time of the crossing (seconds)
+            start_time: Start of phonation (seconds)
+            end_time: End of phonation (seconds)
             sr: Sample rate
             
         Returns:
@@ -219,7 +218,7 @@ class FRCSegmenter:
         end_sample = int(end_time * sr)
         cross_sample = int(cross_time * sr)
         
-        # S'assurer que cross est entre start et end
+        # Ensure that cross is between start and end
         cross_sample = max(start_sample, min(cross_sample, end_sample))
         
         above = audio[start_sample:cross_sample]
@@ -239,19 +238,19 @@ class FRCSegmenter:
 
 class GlideSegmenter:
     """
-    Segmente le glissando vocal en P1 (basses fréquences) et P2 (hautes).
+    Segments the vocal glide into P1 (low frequencies) and P2 (high frequencies).
     
-    Utilise la novelty function basée sur le centroïde spectral
-    pour détecter le point de transition maximale.
+    Uses the novelty function based on the spectral centroid
+    to detect the maximum transition point.
     
-    Exemple:
+    Example usage  :
     ```python
     segmenter = GlideSegmenter()
     segment = segmenter.segment_glide(audio, sr)
     
-    # Analyser les deux parties
-    f0_p1 = analyze(segment.part1)  # Fréquences basses
-    f0_p2 = analyze(segment.part2)  # Fréquences hautes
+    # Analyze the two parts
+    f0_p1 = analyze(segment.part1)  # Low frequencies
+    f0_p2 = analyze(segment.part2)  # High frequencies
     ```
     """
     
@@ -268,45 +267,45 @@ class GlideSegmenter:
         hop_length: int = 512
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Calcule la novelty function basée sur le centroïde spectral.
+        Calculates the novelty function based on the spectral centroid.
         
-        La novelty function détecte les changements rapides dans
-        le spectre. Pour un glissando, elle aura un pic au moment
-        de la transition maximale de fréquence.
+        The novelty function detects rapid changes in
+        the spectrum. For a glide, it will have a peak at the moment
+        of the maximum frequency transition.
         
         Args:
             audio: Signal audio
             sr: Sample rate
-            downsample_factor: Facteur de sous-échantillonnage
-            gamma: Facteur de compression logarithmique
-            frame_length: Taille de la fenêtre STFT
-            hop_length: Hop length STFT
+            downsample_factor: Downsample factor
+            gamma: Logarithmic compression factor
+            frame_length: STFT window size
+            hop_length: STFT hop length
             
         Returns:
             Tuple (novelty_function, time_axis)
         """
-        # Calcul du centroïde spectral
+        # Compute the spectral centroid
         S = np.abs(librosa.stft(audio, n_fft=frame_length, hop_length=hop_length))
         centroid = librosa.feature.spectral_centroid(S=S, sr=sr)[0]
         
-        # Downsampling et compression log
+        # Downsampling and logarithmic compression
         centroid_down = centroid[::downsample_factor]
         centroid_log = np.log(1 + gamma * centroid_down)
         
-        # Dérivée (changement de fréquence)
+        # Derivative (frequency change)
         diff = np.diff(centroid_log, prepend=centroid_log[0])
         
-        # Half-wave rectification (on garde seulement les augmentations)
+        # Half-wave rectification (we keep only the increases)
         diff[diff < 0] = 0
         
-        # Soustraction de la moyenne locale adaptative
+        # Subtraction of the local mean to enhance peaks
         window_size = min(len(diff) // 4, 51)
         if window_size > 5:
             local_mean = signal.savgol_filter(diff, window_size | 1, 3)
             diff = diff - local_mean
             diff[diff < 0] = 0
         
-        # Axe temporel
+        # Time axis for the novelty function
         fps = sr / (hop_length * downsample_factor)
         time_axis = np.arange(len(diff)) / fps
         
@@ -318,17 +317,17 @@ class GlideSegmenter:
         margin_percent: int = 10
     ) -> int:
         """
-        Trouve automatiquement le pic principal de la novelty function.
+        Finds the peak automatically in the novelty function.
         
-        Ignore les marges (début/fin) pour éviter les faux positifs
-        liés aux transitions onset/offset.
+        Ignores the margins (start/end) to avoid false positives
+        related to onset/offset transitions.
         
         Args:
             novelty: Novelty function
-            margin_percent: Pourcentage de marge à ignorer
+            margin_percent: Percentage of margin to ignore
             
         Returns:
-            Index du pic
+            Index of the peak
         """
         margin = int(len(novelty) * margin_percent / 100)
         
@@ -349,19 +348,19 @@ class GlideSegmenter:
         peak_override: Optional[int] = None
     ) -> GlideSegment:
         """
-        Segmente le glissando en P1 et P2.
+        Segments the glissando into P1 and P2.
         
         Args:
             audio: Signal audio
             sr: Sample rate
-            phonation_start: Début de phonation (samples), auto si None
-            phonation_end: Fin de phonation (samples), auto si None
-            peak_override: Position du pic manuelle (samples)
+            phonation_start: Start of phonation (samples), auto if None
+            phonation_end: End of phonation (samples), auto if None
+            peak_override: Position of the manual peak (samples)
             
         Returns:
-            GlideSegment avec les deux parties
+            GlideSegment with the two parts
         """
-        # Détection automatique des bornes si non fournies
+        # Automatic detection of boundaries if not provided
         if phonation_start is None:
             onsets = librosa.onset.onset_detect(y=audio, sr=sr, units='samples')
             phonation_start = onsets[0] if len(onsets) > 0 else 0
@@ -370,29 +369,29 @@ class GlideSegmenter:
             intervals = librosa.effects.split(audio, top_db=45)
             phonation_end = intervals[-1, 1] if len(intervals) > 0 else len(audio)
         
-        # Extraire le segment de phonation
+        # Extract the phonation segment
         audio_segment = audio[phonation_start:phonation_end]
         
-        # Calculer la novelty function
+        # Compute the novelty function
         novelty, time_axis = self.compute_novelty_function(audio_segment, sr)
         
-        # Trouver le pic
+        # Find the peak in the novelty function
         if peak_override is not None:
-            # Convertir le peak_override absolu en relatif
+            # Convert the absolute peak_override to a relative position
             peak_relative = peak_override - phonation_start
-            # Convertir en index de novelty
-            fps = sr / (512 * 32)  # Valeurs par défaut
+            # Convert to a novelty index
+            fps = sr / (512 * 32)  # Default values for hop_length and downsample_factor
             peak_novelty_idx = int(peak_relative / sr * fps)
             peak_novelty_idx = min(max(0, peak_novelty_idx), len(novelty) - 1)
         else:
             peak_novelty_idx = self.find_peak_auto(novelty)
         
-        # Convertir l'index novelty en sample audio
+        # Convert the novelty index to an audio sample
         fps = sr / (512 * 32)
         peak_time = peak_novelty_idx / fps
         peak_sample = phonation_start + int(peak_time * sr)
         
-        # Découper
+        # Split the audio into two parts at the peak
         part1 = audio[phonation_start:peak_sample]
         part2 = audio[peak_sample:phonation_end]
         
@@ -411,13 +410,13 @@ class GlideSegmenter:
 
 class ModulationAnalyzer:
     """
-    Analyse la fréquence de modulation pour la roulée R.
+    Analyze the frequency of modulation for the rolled R.
     
-    La roulée (trille alvéolaire) produit une modulation périodique
-    de l'enveloppe acoustique correspondant à la vibration de la
-    pointe de la langue (typiquement 20-30 Hz).
+    The rolled (alveolar trill) produces a periodic modulation
+    of the acoustic envelope corresponding to the vibration of the
+    tip of the tongue (typically 20-30 Hz).
     
-    Exemple:
+    Example usage  :
     ```python
     analyzer = ModulationAnalyzer()
     result = analyzer.analyze_modulation(audio, sr)
@@ -434,27 +433,27 @@ class ModulationAnalyzer:
         sr: int
     ) -> float:
         """
-        Calcule la fréquence de modulation d'un segment audio.
+        Compute the modulation frequency of an audio segment.
         
-        Méthode:
-        1. Extraction de l'enveloppe RMS
-        2. Suppression du trend lent (Savitzky-Golay)
-        3. FFT de l'enveloppe
-        4. Recherche du pic dans la bande de modulation
+        MMethod:
+        1. Extract the RMS envelope
+        2. Remove the slow trend (Savitzky-Golay)
+        3. FFT of the envelope
+        4. Find the peak in the modulation band
         
         Args:
             audio: Signal audio
             sr: Sample rate
             
         Returns:
-            Fréquence de modulation en Hz
+            Modulation frequency in Hz
         """
         cfg = self.config.modulation
         
         if audio is None or len(audio) < cfg.rms_frame_length:
             return np.nan
         
-        # 1. Extraction enveloppe RMS
+        # 1. Extraction envelope RMS
         rms = librosa.feature.rms(
             y=audio,
             frame_length=cfg.rms_frame_length,
@@ -464,7 +463,7 @@ class ModulationAnalyzer:
         if len(rms) < 15:
             return np.nan
         
-        # 2. Suppression du trend lent
+        # 2. Suppression of slow trend
         window_len = min(len(rms) // 2 * 2 - 1, cfg.savgol_window_max)
         if window_len < 5:
             window_len = 5
@@ -477,16 +476,16 @@ class ModulationAnalyzer:
         else:
             rms_clean = rms - np.mean(rms)
         
-        # 3. FFT de l'enveloppe
+        # 3. FFT of the envelope
         n_fft = len(rms_clean)
         spectrum = np.fft.rfft(rms_clean)
         freqs = np.fft.rfftfreq(n_fft, d=cfg.rms_hop_length / sr)
         
-        # 4. Recherche du pic dans la bande typique
+        # 4. Find the peak in the modulation band
         mask = (freqs >= cfg.mod_freq_min) & (freqs <= cfg.mod_freq_max)
         
         if not np.any(mask):
-            # Fallback avec bande élargie
+            # Fallback with wider band
             mask = (freqs >= cfg.mod_freq_fallback_min) & (freqs <= cfg.mod_freq_fallback_max)
         
         if not np.any(mask):
@@ -505,18 +504,18 @@ class ModulationAnalyzer:
         end_time: Optional[float] = None
     ) -> ModulationResult:
         """
-        Analyse la modulation avec segmentation FRC.
+        Analyze the modulation with FRC segmentation.
         
         Args:
             audio: Signal audio
             sr: Sample rate
-            frc_segment: Segment FRC pré-calculé
-            cross_time: Temps de crossing FRC (alternative)
-            start_time: Début de phonation
-            end_time: Fin de phonation
+            frc_segment: FRC SEGMENT pre-computed (optional)
+            cross_time: Time of FRC crossing (alternative)
+            start_time: Start time of phonation
+            end_time: End time of phonation
             
         Returns:
-            ModulationResult avec fréquences full, above et below
+            ModulationResult with full, above and below FRC frequencies
         """
         if frc_segment is None and cross_time is not None:
             segmenter = FRCSegmenter(self.config)
@@ -524,7 +523,7 @@ class ModulationAnalyzer:
                 audio, cross_time, start_time or 0, end_time or len(audio)/sr, sr
             )
         
-        # Fréquence sur tout le segment
+        # Frequency on the entire segment
         if frc_segment is not None:
             full_audio = np.concatenate([frc_segment.above_frc, frc_segment.below_frc])
             above_audio = frc_segment.above_frc
@@ -551,15 +550,15 @@ def detect_non_silent_intervals(
     top_db: int = 45
 ) -> np.ndarray:
     """
-    Détecte les intervalles non-silencieux.
+    Detects non-silent intervals.
     
     Args:
-        audio: Signal audio
+        audio: Audio signal
         sr: Sample rate
-        top_db: Seuil en dB sous le max
+        top_db: Threshold in dB below the maximum to consider as silence
         
     Returns:
-        Array de shape (n_intervals, 2) avec [start, end] en samples
+        Array of shape (n_intervals, 2) with [start, end] in samples
     """
     return librosa.effects.split(audio, top_db=top_db)
 
@@ -571,27 +570,27 @@ def detect_phonation_bounds(
     onset_delta: float = 0.05
 ) -> Tuple[int, int]:
     """
-    Détecte le début et la fin de la phonation.
+    DDetects the start and end of phonation.
     
     Args:
         audio: Signal audio
         sr: Sample rate
-        top_db: Seuil pour la détection de silence
-        onset_delta: Sensibilité de détection d'onset
+        top_db: Threshold in dB below the maximum to consider as silence
+        onset_delta: Sensitivity of onset detection (lower = more sensitive)
         
     Returns:
         Tuple (start_sample, end_sample)
     """
-    # Intervalles non-silencieux
+    # Non silent intervals
     intervals = detect_non_silent_intervals(audio, sr, top_db)
     
     if len(intervals) == 0:
         return 0, len(audio)
     
-    # Prendre le premier intervalle significatif pour le début
+    # Take the first significant interval for the start
     start = intervals[0, 0]
     
-    # Prendre la fin du dernier intervalle
+    # Take the end of the last interval for the end
     end = intervals[-1, 1]
     
     return start, end

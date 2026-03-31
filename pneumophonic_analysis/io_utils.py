@@ -1,12 +1,12 @@
 """
-Module d'entrées/sorties pour le pipeline pneumophonique.
+Input/Output module for the pneumophonic pipeline.
 
-Gère la lecture des fichiers:
-- .dat : Données OEP (volumes, sync)
-- .wav : Signaux audio
-- .xlsx : Fichiers Excel de résultats et timing
+Handles loading of:
+- .dat : OEP data (volumes, sync)
+- .wav : Audio signals
+- .xlsx : Excel files for results and timing
 
-Auteur: Pipeline basé sur les travaux de Bianca Zocco (2025)
+Author: Pipeline based on the work of Bianca Zocco (2025)
 """
 
 import os
@@ -22,9 +22,9 @@ from .config import PipelineConfig, get_config
 
 class DataLoader:
     """
-    Classe pour charger les données d'un sujet.
+    Class for loading subject data.
     
-    Exemple d'utilisation:
+    Example usage:
     ```python
     loader = DataLoader(subject_folder="20260218_GaBa")
     audio, sr = loader.load_audio("a.wav")
@@ -40,19 +40,19 @@ class DataLoader:
         renders_subfolder: str = "renders"
     ):
         """
-        Initialise le loader pour un sujet.
+        Initializes the loader for a subject.
         
         Args:
-            subject_folder: Chemin vers le dossier du sujet (ex: "20260218_GaBa")
-            config: Configuration du pipeline (utilise DEFAULT_CONFIG si None)
-            renders_subfolder: Nom du sous-dossier contenant les fichiers audio rendus
+            subject_folder: Path to the subject folder (e.g., "20260218_GaBa")
+            config: Pipeline configuration (uses DEFAULT_CONFIG if None)
+            renders_subfolder: Name of the subfolder containing rendered audio files
         """
         self.config = config or get_config()
         self.subject_folder = Path(subject_folder)
         self.renders_folder = self.subject_folder / renders_subfolder
         
-        # Extraire l'ID du sujet depuis le nom du dossier
-        # Format attendu: "YYYYMMDD_SubjectID"
+        # Extract subject ID from folder name
+        # Expected format: "YYYYMMDD_SubjectID"
         folder_name = self.subject_folder.name
         parts = folder_name.split('_')
         self.subject_id = parts[1] if len(parts) > 1 else folder_name
@@ -65,25 +65,25 @@ class DataLoader:
         normalize: bool = True
     ) -> Tuple[np.ndarray, int]:
         """
-        Charge un fichier audio.
+        Loads an audio file.
         
         Args:
-            filename: Nom du fichier (cherché dans renders_folder puis subject_folder)
-            sr: Fréquence d'échantillonnage cible (None = originale, défaut = config)
-            normalize: Normaliser l'amplitude entre -1 et 1
+            filename: File name (searched in renders_folder then subject_folder)
+            sr: Target sampling rate (None = original, default = config)
+            normalize: Normalize amplitude between -1 and 1
             
         Returns:
-            Tuple (signal audio, sample rate)
+            Tuple (audio signal, sample rate)
             
         Raises:
-            FileNotFoundError: Si le fichier n'existe pas
+            FileNotFoundError: If the file does not exist
         """
         sr = sr or self.config.audio.sample_rate
         
-        # Chercher le fichier
+        # Search for the file
         audio_path = self._find_file(filename, [self.renders_folder, self.subject_folder])
         
-        # Charger avec librosa
+        # Load with librosa
         audio, sample_rate = librosa.load(str(audio_path), sr=sr)
         
         if normalize:
@@ -99,11 +99,11 @@ class DataLoader:
         sr: Optional[int] = None
     ) -> Tuple[np.ndarray, int]:
         """
-        Charge le signal de synchronisation.
+        Loads the synchronization signal.
         
         Args:
-            filename: Nom du fichier sync (défaut: "sync_signal.wav")
-            sr: Fréquence d'échantillonnage cible
+            filename: File name of the sync signal (default: "sync_signal.wav")
+            sr: Target sampling rate (None = original, default = config)
             
         Returns:
             Tuple (signal sync, sample rate)
@@ -116,21 +116,21 @@ class DataLoader:
         fs_dat: Optional[int] = None
     ) -> pd.DataFrame:
         """
-        Charge les données OEP depuis un fichier .csv/.dat.
+        Loads OEP data from a .csv/.dat file.
         
         Args:
-            csv_path: Chemin relatif vers le fichier CSV
-            fs_dat: Fréquence d'échantillonnage des données (pour vérification)
+            csv_path: Relative path to the CSV file
+            fs_dat: Sampling frequency of the data (for verification)
             
         Returns:
-            DataFrame avec les colonnes OEP standard
+            DataFrame with the standard OEP columns
         """
         full_path = self.subject_folder / csv_path
         
         if not full_path.exists():
-            raise FileNotFoundError(f"Fichier OEP non trouvé: {full_path}")
+            raise FileNotFoundError(f"File OEP not found: {full_path}")
         
-        # Charger avec les noms de colonnes standard
+        # Load with the standard column names
         df = pd.read_csv(
             full_path,
             sep=' ',
@@ -138,13 +138,13 @@ class DataLoader:
             index_col=False
         )
         
-        # Vérifier la cohérence temporelle si fs_dat fourni
+        # Verify temporal consistency if fs_dat is provided
         if fs_dat is not None and len(df) > 1:
             dt_expected = 1 / fs_dat
             dt_actual = df['time'].iloc[1] - df['time'].iloc[0]
             if not np.isclose(dt_actual, dt_expected, rtol=0.1):
-                print(f"⚠️  Attention: fs_dat attendu={fs_dat}Hz, "
-                      f"calculé={1/dt_actual:.1f}Hz")
+                print(f"⚠️  Attention: fs_dat expected={fs_dat}Hz, "
+                      f"computed ={1/dt_actual:.1f}Hz")
         
         return df
     
@@ -153,18 +153,18 @@ class DataLoader:
         sheet_name: str = "Timing"
     ) -> pd.DataFrame:
         """
-        Charge les timings depuis le fichier Excel du sujet.
+        Loads timing data from the subject's Excel file.
         
         Args:
-            sheet_name: Nom de la feuille contenant les timings
+            sheet_name: Name of the sheet containing the timings
             
         Returns:
-            DataFrame avec les timings par tâche
+            DataFrame with the timings per task
         """
         excel_path = self.subject_folder / f"{self.subject_id}_audio.xlsx"
         
         if not excel_path.exists():
-            raise FileNotFoundError(f"Fichier timing non trouvé: {excel_path}")
+            raise FileNotFoundError(f"File timing not found: {excel_path}")
         
         return pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
     
@@ -174,24 +174,24 @@ class DataLoader:
         timing_df: Optional[pd.DataFrame] = None
     ) -> Dict[str, float]:
         """
-        Récupère les timings pour une tâche spécifique.
+        Retrieves the timings for a specific task.
         
         Args:
-            task_name: Nom de la tâche (ex: "a", "r", "phrase_1")
-            timing_df: DataFrame des timings (chargé automatiquement si None)
-            
+            task_name: Name of the task (e.g., "a", "r", "phrase_1")
+            timing_df: DataFrame of the timings (automatically loaded if None)
+        
         Returns:
-            Dict avec 't_start', 't_stop', et autres timings disponibles
+            Dict with 't_start', 't_stop', and other available timings
         """
         if timing_df is None:
             timing_df = self.load_timing_excel()
         
-        # Chercher la ligne correspondante
+        # Search for the corresponding row
         mask = timing_df[0].astype(str).str.lower() == task_name.lower()
         row = timing_df[mask]
         
         if row.empty:
-            raise ValueError(f"Tâche '{task_name}' non trouvée dans les timings")
+            raise ValueError(f"Task '{task_name}' not found in the timings")
         
         row = row.iloc[0]
         
@@ -200,7 +200,7 @@ class DataLoader:
             't_stop': float(row.iloc[2]) if len(row) > 2 and pd.notna(row.iloc[2]) else None,
         }
         
-        # Ajouter d'autres colonnes si présentes
+        # Add other columns if present
         for i in range(3, len(row)):
             if pd.notna(row.iloc[i]):
                 result[f'col_{i}'] = row.iloc[i]
@@ -208,30 +208,30 @@ class DataLoader:
         return result
     
     def list_audio_files(self, pattern: str = "*.wav") -> List[Path]:
-        """Liste tous les fichiers audio dans le dossier renders."""
+        """List all audio files in the renders folder."""
         return list(self.renders_folder.glob(pattern))
     
     def _find_file(self, filename: str, search_paths: List[Path]) -> Path:
-        """Cherche un fichier dans plusieurs chemins."""
+        """Search for a file in multiple paths."""
         for path in search_paths:
             full_path = path / filename
             if full_path.exists():
                 return full_path
         
-        # Si le filename est déjà un chemin absolu ou relatif qui existe
+        # If the filename is already an absolute or relative path that exists
         if Path(filename).exists():
             return Path(filename)
         
         raise FileNotFoundError(
-            f"Fichier '{filename}' non trouvé dans: {[str(p) for p in search_paths]}"
+            f"File '{filename}' not found in: {[str(p) for p in search_paths]}"
         )
 
 
 class ResultsWriter:
     """
-    Classe pour sauvegarder les résultats d'analyse.
+    Class for saving analysis results.
     
-    Exemple:
+    Example usage:
     ```python
     writer = ResultsWriter("results/subject_analysis.xlsx")
     writer.write_metrics(df_metrics, sheet="Metrics")
@@ -246,11 +246,11 @@ class ResultsWriter:
         config: Optional[PipelineConfig] = None
     ):
         """
-        Initialise le writer.
+        Initialize the writer.
         
         Args:
-            output_path: Chemin du fichier de sortie (.xlsx)
-            config: Configuration du pipeline
+            output_path: Path to the output file (.xlsx)
+            config: Pipeline configuration
         """
         self.config = config or get_config()
         self.output_path = Path(output_path)
@@ -266,14 +266,14 @@ class ResultsWriter:
         header: bool = True
     ):
         """
-        Écrit un DataFrame dans une feuille Excel.
+        Writes a DataFrame to an Excel sheet.
         
         Args:
-            df: DataFrame à écrire
-            sheet_name: Nom de la feuille
-            index: Inclure l'index
-            startrow: Ligne de départ
-            header: Inclure les en-têtes
+            df: DataFrame to write
+            sheet_name: Name of the sheet
+            index: Include the index
+            startrow: Starting row
+            header: Include headers
         """
         mode = 'a' if self.output_path.exists() else 'w'
         
@@ -298,18 +298,18 @@ class ResultsWriter:
         row_index: int
     ):
         """
-        Ajoute une ligne à une feuille existante.
+        Adds a row to an existing sheet.
         
         Args:
-            df_row: DataFrame d'une seule ligne
-            sheet_name: Nom de la feuille
-            row_index: Index de la ligne (1-based, comme Excel)
+            df_row: DataFrame with a single row
+            sheet_name: Name of the sheet
+            row_index: Index of the row (1-based, like Excel)
         """
         self.write_dataframe(
             df_row,
             sheet_name=sheet_name,
             index=False,
-            startrow=row_index - 1,  # Conversion vers 0-based
+            startrow=row_index - 1,  # Conversion to 0-based
             header=False
         )
 
@@ -321,13 +321,13 @@ def save_audio(
     normalize: bool = True
 ):
     """
-    Sauvegarde un signal audio en fichier WAV.
+    Saves an audio signal to a WAV file.
     
     Args:
-        audio: Signal audio (1D numpy array)
-        path: Chemin de sortie
-        sr: Fréquence d'échantillonnage
-        normalize: Normaliser avant sauvegarde
+        audio: Audio signal (1D numpy array)
+        path: Output path
+        sr: Sampling rate
+        normalize: Normalize before saving
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -345,21 +345,21 @@ def discover_subjects(
     pattern: str = "*_*"
 ) -> List[Path]:
     """
-    Découvre tous les dossiers de sujets dans un répertoire.
+    Discovers all subject folders in a directory.
     
     Args:
-        data_root: Répertoire racine contenant les dossiers sujets
-        pattern: Pattern glob pour les dossiers (défaut: format "DATE_ID")
+        data_root: Root directory containing subject folders
+        pattern: Glob pattern for folders (default: "DATE_ID" format)
         
     Returns:
-        Liste des chemins vers les dossiers sujets
+        List of paths to subject folders
     """
     data_root = Path(data_root)
     
     subjects = []
     for folder in sorted(data_root.glob(pattern)):
         if folder.is_dir():
-            # Vérifier que c'est bien un dossier sujet (contient renders/)
+            # Verify that this is a subject folder (contains renders/)
             if (folder / "renders").exists() or (folder / "sync_signal.wav").exists():
                 subjects.append(folder)
     
@@ -371,14 +371,14 @@ def load_master_excel(
     sheet_name: str = "cross"
 ) -> pd.DataFrame:
     """
-    Charge le fichier Excel master contenant les données de tous les sujets.
+    Loads the master Excel file containing data for all subjects.
     
     Args:
-        path: Chemin vers le fichier Excel master
-        sheet_name: Nom de la feuille à charger
+        path: Path to the master Excel file
+        sheet_name: Name of the sheet to load
         
     Returns:
-        DataFrame avec les données master
+        DataFrame with the master data
     """
     df = pd.read_excel(path, sheet_name=sheet_name)
     df.columns = df.columns.str.strip()

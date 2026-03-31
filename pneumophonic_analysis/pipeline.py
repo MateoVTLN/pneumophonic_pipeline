@@ -1,14 +1,14 @@
 """
-Pipeline principal d'orchestration pour l'analyse pneumophonique.
+Main Pipeline for orchestrating pneumophonic analysis.
 
-Ce module coordonne l'analyse complète:
-- Découverte des sujets
-- Chargement des données
-- Synchronisation OEP/Audio
-- Analyse par tâche
-- Export des résultats
+This module coordinates the complete analysis:
+- Subject discovery
+- Data loading
+- OEP/Audio synchronization
+- Task-based analysis
+- Results export
 
-Référence: Thèse Zocco 2025 - Protocole d'analyse
+Reference: Zocco 2025 Thesis - Analysis Protocol
 """
 
 import os
@@ -33,7 +33,7 @@ from .task_analyzers import (
 from .visualization import Visualizer
 
 
-# Configuration du logging
+#  Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -43,18 +43,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SubjectAnalysis:
-    """Résultat de l'analyse complète d'un sujet."""
+    """RResult of the complete analysis of a subject."""
     
     subject_id: str
     subject_folder: Path
     
-    # Résultats par tâche
+    # Results by task
     results: Dict[str, TaskResult] = field(default_factory=dict)
     
-    # Synchronisation
+    # Synchronization result (if applicable)
     sync_result: Optional[SyncResult] = None
     
-    # Erreurs éventuelles
+    # Errors and warnings
     errors: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     
@@ -63,7 +63,7 @@ class SubjectAnalysis:
         return len(self.errors) == 0
     
     def to_dataframe(self) -> pd.DataFrame:
-        """Combine tous les résultats en un DataFrame."""
+        """Combines all results into a single DataFrame."""
         dfs = []
         for task_name, result in self.results.items():
             df = result.to_dataframe()
@@ -76,7 +76,7 @@ class SubjectAnalysis:
 
 @dataclass
 class BatchAnalysis:
-    """Résultat d'une analyse batch sur plusieurs sujets."""
+    """Result of a batch analysis on multiple subjects."""
     
     subjects: Dict[str, SubjectAnalysis] = field(default_factory=dict)
     
@@ -93,7 +93,7 @@ class BatchAnalysis:
         return self.n_subjects - self.n_successful
     
     def to_dataframe(self) -> pd.DataFrame:
-        """Combine tous les résultats en un seul DataFrame."""
+        """Combines all results into a single DataFrame."""
         dfs = []
         for subject_id, analysis in self.subjects.items():
             df = analysis.to_dataframe()
@@ -105,7 +105,7 @@ class BatchAnalysis:
         return pd.DataFrame()
     
     def get_errors_summary(self) -> pd.DataFrame:
-        """Résumé des erreurs."""
+        """Returns a summary of all errors and warnings."""
         data = []
         for subject_id, analysis in self.subjects.items():
             for error in analysis.errors:
@@ -125,12 +125,12 @@ class BatchAnalysis:
 
 class PneumophonicPipeline:
     """
-    Pipeline principal pour l'analyse pneumophonique.
+    Principal pipeline for pneumophonic analysis.
     
-    Orchestre l'analyse complète d'un ou plusieurs sujets,
-    coordonnant les différents modules du package.
+    Coordinates the complete analysis of one or more subjects,
+    orchestrating the different modules of the package.
     
-    Exemple d'utilisation:
+    Example usage:
     ```python
     # Configuration
     config = create_config(
@@ -159,12 +159,12 @@ class PneumophonicPipeline:
         output_root: Optional[Path] = None
     ):
         """
-        Initialise le pipeline.
+        Initializes the pipeline.
         
         Args:
-            config: Configuration du pipeline
-            data_root: Répertoire racine des données (override config)
-            output_root: Répertoire de sortie (override config)
+            config: Configuration of the pipeline
+            data_root: Root directory for the data (override config)
+            output_root: Output directory (override config)
         """
         self.config = config or get_config()
         
@@ -193,16 +193,16 @@ class PneumophonicPipeline:
     
     def discover_subjects(self) -> List[Path]:
         """
-        Découvre les sujets disponibles.
+        Discovers available subjects.
         
         Returns:
-            Liste des chemins vers les dossiers sujets
+            List of paths to subject folders
         """
         if self.config.data_root is None:
-            raise ValueError("data_root non configuré")
+            raise ValueError("data_root not configured")
         
         subjects = discover_subjects(self.config.data_root)
-        logger.info(f"Découvert {len(subjects)} sujets")
+        logger.info(f"Discovered {len(subjects)} subjects")
         
         return subjects
     
@@ -214,16 +214,16 @@ class PneumophonicPipeline:
         save_figures: bool = False
     ) -> SubjectAnalysis:
         """
-        Analyse complète d'un sujet.
+        Full analysis of a subject.
         
         Args:
-            subject_folder: Chemin vers le dossier du sujet
-            tasks: Liste des tâches à analyser (None = toutes)
-            timing_excel: Fichier Excel avec les timings
-            save_figures: Sauvegarder les figures
+            subject_folder: Path to the subject's folder
+            tasks: List of tasks to analyze (None = all)
+            timing_excel: Excel file with the timings
+            save_figures: Save the figures
             
         Returns:
-            SubjectAnalysis avec tous les résultats
+            SubjectAnalysis with all the results
         """
         subject_folder = Path(subject_folder)
         loader = DataLoader(subject_folder, self.config)
@@ -233,9 +233,9 @@ class PneumophonicPipeline:
             subject_folder=subject_folder
         )
         
-        logger.info(f"Analyse du sujet {loader.subject_id}")
+        logger.info(f"Analyzing subject {loader.subject_id}")
         
-        # Charger les timings si disponibles
+        # Load the timings if available
         timing_data = None
         if timing_excel is not None:
             try:
@@ -243,16 +243,16 @@ class PneumophonicPipeline:
             except Exception as e:
                 analysis.warnings.append(f"Impossible de charger les timings: {e}")
         
-        # Synchronisation (si sync_signal.wav existe)
+        # Synchronization (if sync_signal.wav exists)
         try:
             sync_audio, sr_sync = loader.load_sync_signal()
-            # Note: la sync complète nécessite aussi les données OEP
-            logger.debug(f"Signal sync chargé: {len(sync_audio)} samples")
+            # Note: the full sync requires also the OEP data
+            logger.debug(f"Sync signal loaded: {len(sync_audio)} samples")
         except FileNotFoundError:
-            analysis.warnings.append("Signal sync non trouvé")
+            analysis.warnings.append("Sync signal not found, skipping synchronization")
             sync_audio = None
         
-        # Analyser chaque tâche
+        # Analyze each task
         tasks_to_analyze = tasks or ['vowel', 'phrase', 'trill', 'glide']
         
         for task_name in tasks_to_analyze:
@@ -267,7 +267,7 @@ class PneumophonicPipeline:
                         self._save_task_figure(result, loader.subject_id)
                         
             except Exception as e:
-                error_msg = f"Erreur sur tâche {task_name}: {str(e)}"
+                error_msg = f"Error on task {task_name}: {str(e)}"
                 analysis.errors.append(error_msg)
                 logger.error(error_msg)
         
@@ -279,9 +279,9 @@ class PneumophonicPipeline:
         task_name: str,
         timing_data: Optional[pd.DataFrame] = None
     ) -> Optional[TaskResult]:
-        """Analyse une tâche spécifique."""
+        """Analyze a specific task."""
         
-        # Mapping des fichiers audio par tâche
+        # Mapping of audio files by task (to be adapted based on actual data structure)
         task_files = {
             'vowel': ['a.wav', 'vocali_a.wav', 'AL.wav'],
             'phrase': ['phrase_1.wav', 'phrase_5.wav', 'frase_1.wav'],
@@ -289,7 +289,7 @@ class PneumophonicPipeline:
             'glide': ['glide.wav', 'AG.wav', 'phonema_a_7.wav'],
         }
         
-        # Trouver le fichier audio
+        # Find the audio file for this task
         audio_file = None
         for candidate in task_files.get(task_name, []):
             try:
@@ -300,22 +300,22 @@ class PneumophonicPipeline:
                 continue
         
         if audio_file is None:
-            logger.warning(f"Fichier audio non trouvé pour {task_name}")
+            logger.warning(f"Audio file not found for {task_name}")
             return None
         
-        # Obtenir l'analyseur
+        # Get the analyzer
         analyzer = self.analyzers.get(task_name)
         if analyzer is None:
             analyzer = get_analyzer_for_task(task_name, self.config)
         
-        # Paramètres additionnels depuis les timings
+        # Additional parameters from timings
         kwargs = {}
         if timing_data is not None:
-            # Chercher les timings pour cette tâche
-            # (Structure dépend du format du fichier Excel)
+            # Look for the timings for this task
+            # (Structure depends on the Excel file format)
             pass
         
-        # Analyser
+        # Analyze
         result = analyzer.analyze(
             audio=audio,
             sr=sr,
@@ -328,7 +328,7 @@ class PneumophonicPipeline:
         return result
     
     def _save_task_figure(self, result: TaskResult, subject_id: str):
-        """Sauvegarde la figure d'un résultat."""
+        """Save the figure of a result."""
         if self.config.output_root is None:
             return
         
@@ -351,23 +351,23 @@ class PneumophonicPipeline:
         stop_on_error: bool = False
     ) -> BatchAnalysis:
         """
-        Analyse un lot de sujets.
+        Analyze a batch of subjects.
         
         Args:
-            subjects: Liste des sujets (None = tous)
-            tasks: Tâches à analyser
-            progress: Afficher la barre de progression
+            subjects: List of subjects (None = all)
+            tasks: Tasks to analyze
+            progress: Display progress bar
             stop_on_error: Arrêter en cas d'erreur
             
         Returns:
-            BatchAnalysis avec tous les résultats
+            BatchAnalysis with all the results
         """
         if subjects is None:
             subjects = self.discover_subjects()
         
         batch = BatchAnalysis()
         
-        iterator = tqdm(subjects, desc="Analyse") if progress else subjects
+        iterator = tqdm(subjects, desc="Analyzing") if progress else subjects
         
         for subject_folder in iterator:
             try:
@@ -378,11 +378,11 @@ class PneumophonicPipeline:
                 batch.subjects[analysis.subject_id] = analysis
                 
             except Exception as e:
-                logger.error(f"Erreur sujet {subject_folder}: {e}")
+                logger.error(f"Error with subject {subject_folder}: {e}")
                 if stop_on_error:
                     raise
         
-        logger.info(f"Batch terminé: {batch.n_successful}/{batch.n_subjects} réussis")
+        logger.info(f"Batch completed: {batch.n_successful}/{batch.n_subjects} successful")
         
         return batch
     
@@ -393,29 +393,29 @@ class PneumophonicPipeline:
         include_errors: bool = True
     ):
         """
-        Exporte les résultats vers Excel.
+        Export the results to Excel.
         
         Args:
-            results: Résultats à exporter
-            output_path: Chemin du fichier de sortie
-            include_errors: Inclure la feuille des erreurs
+            results: RResults to export
+            output_path: Path to the output file
+            include_errors: Include the errors sheet
         """
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            # Données principales
+            # Main data
             df_main = results.to_dataframe()
             if not df_main.empty:
                 df_main.to_excel(writer, sheet_name='Results', index=False)
             
-            # Erreurs
+            # Errors
             if include_errors and isinstance(results, BatchAnalysis):
                 df_errors = results.get_errors_summary()
                 if not df_errors.empty:
                     df_errors.to_excel(writer, sheet_name='Errors', index=False)
         
-        logger.info(f"Résultats exportés: {output_path}")
+        logger.info(f"RResults exported: {output_path}")
     
     def generate_report(
         self,
@@ -424,12 +424,12 @@ class PneumophonicPipeline:
         include_figures: bool = True
     ):
         """
-        Génère un rapport complet avec figures.
+        Generate a complete report with figures.
         
         Args:
-            results: Résultats de l'analyse batch
-            output_folder: Dossier de sortie
-            include_figures: Inclure les figures
+            results: RResults of the batch analysis
+            output_folder: Output folder
+            include_figures: Include the figures
         """
         output_folder = Path(output_folder)
         output_folder.mkdir(parents=True, exist_ok=True)
@@ -437,7 +437,7 @@ class PneumophonicPipeline:
         # Export Excel
         self.export_results(results, output_folder / "results.xlsx")
         
-        # Figures de synthèse
+        # Figures 
         if include_figures:
             df = results.to_dataframe()
             
@@ -449,7 +449,7 @@ class PneumophonicPipeline:
                     fig, output_folder / "figures" / "mean_f0_comparison.png"
                 )
         
-        logger.info(f"Rapport généré: {output_folder}")
+        logger.info(f"Report generated: {output_folder}")
 
 
 def run_pipeline(
@@ -459,25 +459,25 @@ def run_pipeline(
     subjects: Optional[List[str]] = None
 ) -> BatchAnalysis:
     """
-    Fonction de commodité pour exécuter le pipeline complet.
+    Convenience function to run the complete pipeline with minimal code.
     
     Args:
-        data_root: Répertoire des données
-        output_root: Répertoire de sortie
-        tasks: Tâches à analyser
-        subjects: Sujets spécifiques (None = tous)
+        data_root: Root directory of the data
+        output_root: Root directory of the output
+        tasks: Tasks to analyze
+        subjects: Specific subjects (None = all)
         
     Returns:
         BatchAnalysis
     
-    Exemple:
+    Example usage  :
     ```python
     results = run_pipeline(
         data_root="/data/subjects",
         output_root="/results",
         tasks=['vowel', 'trill']
     )
-    print(f"Analysé {results.n_subjects} sujets")
+    print(f"Analyzed {results.n_subjects} subjects")
     ```
     """
     config = create_config(
@@ -487,7 +487,7 @@ def run_pipeline(
     
     pipeline = PneumophonicPipeline(config)
     
-    # Filtrer les sujets si spécifiés
+    # Filter subjects if specified
     if subjects:
         subject_folders = [
             Path(data_root) / s for s in subjects
@@ -495,10 +495,10 @@ def run_pipeline(
     else:
         subject_folders = None
     
-    # Analyser
+    # Analyzer
     batch = pipeline.analyze_batch(subjects=subject_folders, tasks=tasks)
     
-    # Exporter
+    # Export and report
     pipeline.generate_report(batch, output_root)
     
     return batch

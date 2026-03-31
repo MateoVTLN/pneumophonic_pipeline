@@ -1,16 +1,16 @@
 """
-Module d'extraction des paramètres acoustiques via Praat.
+Module for extracting acoustic parameters via Praat.
 
-Utilise parselmouth (interface Python pour Praat) pour extraire:
-- Fréquence fondamentale (F0) et ses statistiques
-- Jitter (perturbation de fréquence)
-- Shimmer (perturbation d'amplitude)
+Uses parselmouth (Python interface for Praat) to extract:
+- Fundamental frequency (F0) and its statistics
+- Jitter (frequency perturbation)
+- Shimmer (amplitude perturbation)
 - HNR (Harmonics-to-Noise Ratio)
 - Formants (F1, F2, F3)
 - DSI (Dysphonia Severity Index)
 
-Référence: 
-- Thèse Zocco 2025, Section 3.5.3
+Reference: 
+- Zocco Thesis 2025, Section 3.5.3
 - Praat documentation: https://www.fon.hum.uva.nl/praat/manual/Voice.html
 - Scripts: https://github.com/drfeinberg/PraatScripts
 """
@@ -27,7 +27,7 @@ from .config import PipelineConfig, get_config
 
 @dataclass
 class PitchMetrics:
-    """Métriques de fréquence fondamentale."""
+    """Fundamental frequency metrics."""
     mean_f0: float
     std_f0: float
     min_f0: float
@@ -40,7 +40,7 @@ class PitchMetrics:
 
 @dataclass
 class PerturbationMetrics:
-    """Métriques de perturbation (jitter/shimmer)."""
+    """Perturbation metrics (jitter/shimmer)."""
     # Jitter
     local_jitter: float
     local_absolute_jitter: float
@@ -59,7 +59,7 @@ class PerturbationMetrics:
 
 @dataclass
 class FormantMetrics:
-    """Métriques des formants."""
+    """Formant metrics."""
     f1_mean: float
     f2_mean: float
     f3_mean: float
@@ -70,31 +70,31 @@ class FormantMetrics:
 
 @dataclass
 class VoiceQualityMetrics:
-    """Métriques de qualité vocale."""
+    """Voice quality metrics."""
     hnr: float              # Harmonics-to-Noise Ratio
     dsi: float              # Dysphonia Severity Index
-    intensity_mean: float   # Intensité moyenne
-    intensity_min: float    # Intensité minimale
+    intensity_mean: float   # Mean Intensity
+    intensity_min: float    # Minimum Intensity
     mpt: float              # Maximum Phonation Time
 
 
 @dataclass
 class AcousticAnalysisResult:
-    """Résultat complet de l'analyse acoustique."""
+    """Complete result of acoustic analysis."""
     
     pitch: PitchMetrics
     perturbation: PerturbationMetrics
     formants: FormantMetrics
     voice_quality: VoiceQualityMetrics
     
-    # Traces temporelles (optionnelles)
+    # Temporal traces (optional, for formants)
     f1_trace: Optional[np.ndarray] = None
     f2_trace: Optional[np.ndarray] = None
     f3_trace: Optional[np.ndarray] = None
     time_trace: Optional[np.ndarray] = None
     
     def to_dataframe(self, prefix: str = "") -> pd.DataFrame:
-        """Convertit les métriques en DataFrame sur une ligne."""
+        """Converts the metrics to a single-row DataFrame."""
         data = {}
         
         # Pitch
@@ -118,29 +118,29 @@ class AcousticAnalysisResult:
 
 class PraatAnalyzer:
     """
-    Analyseur acoustique utilisant Praat via Parselmouth.
+    Acoustic analyzer using Praat via Parselmouth.
     
-    Exemple:
+    Example usage:
     ```python
     analyzer = PraatAnalyzer(config)
     
-    # Depuis un fichier
+    # From a file
     result = analyzer.analyze_file("audio.wav")
     
-    # Depuis un array numpy
+    # From a numpy array
     result = analyzer.analyze_signal(audio, sr=48000)
     
-    # Export en DataFrame
+    # Export as DataFrame
     df = result.to_dataframe()
     ```
     """
     
     def __init__(self, config: Optional[PipelineConfig] = None):
         """
-        Initialise l'analyseur.
+        Initialize the analyzer.
         
         Args:
-            config: Configuration du pipeline
+            config: Pipeline configuration (optional, will use defaults if not provided)
         """
         self.config = config or get_config()
     
@@ -149,7 +149,7 @@ class PraatAnalyzer:
         audio: np.ndarray,
         sr: int
     ) -> parselmouth.Sound:
-        """Crée un objet Sound Praat depuis un array numpy."""
+        """Creates a Praat Sound object from a numpy array."""
         return parselmouth.Sound(audio, sampling_frequency=sr)
 
     def _create_pitch(
@@ -158,11 +158,11 @@ class PraatAnalyzer:
         f0_min: Optional[int] = None,
         f0_max: Optional[int] = None
     ) -> parselmouth.Pitch:
-        """Crée un objet Pitch."""
+        """Creates a Pitch object."""
         f0_min = f0_min or self.config.pitch.f0_min
         f0_max = f0_max or self.config.pitch.f0_max
         
-        # --- SÉCURITÉ AJOUTÉE ---
+        # --- SAFETY ---
         if f0_min is None or np.isnan(f0_min):
             f0_min = 75.0
         if f0_max is None or np.isnan(f0_max):
@@ -189,7 +189,7 @@ class PraatAnalyzer:
         f0_min: Optional[int] = None,
         f0_max: Optional[int] = None
     ) -> parselmouth.Data:
-        """Crée un objet PointProcess (instants glottiques)."""
+        """Creates a PointProcess object (glottal instants)."""
         f0_min = f0_min or self.config.pitch.f0_min
         f0_max = f0_max or self.config.pitch.f0_max
         
@@ -202,15 +202,15 @@ class PraatAnalyzer:
         f0_max: Optional[int] = None
     ) -> PitchMetrics:
         """
-        Extrait les métriques de fréquence fondamentale.
+        Extracts the fundamental frequency metrics.
         
         Args:
-            sound: Objet Sound Praat
-            f0_min: F0 minimum
-            f0_max: F0 maximum
+            sound: Praat Sound object
+            f0_min: Minimum F0
+            f0_max: Maximum F0
             
         Returns:
-            PitchMetrics avec mean, std, min, max
+            PitchMetrics with mean, std, min, max
         """
         unit = self.config.pitch.unit
         pitch = self._create_pitch(sound, f0_min, f0_max)
@@ -234,15 +234,15 @@ class PraatAnalyzer:
         f0_max: Optional[int] = None
     ) -> PerturbationMetrics:
         """
-        Extrait les métriques de jitter et shimmer.
+        Extracts jitter and shimmer metrics.
         
-        Le jitter mesure les perturbations cycle-à-cycle de la période.
-        Le shimmer mesure les perturbations d'amplitude.
+        Jitter measures cycle-to-cycle period perturbations.
+        Shimmer measures amplitude perturbations.
         
         Args:
-            sound: Objet Sound Praat
-            f0_min: F0 minimum
-            f0_max: F0 maximum
+            sound: Praat Sound object
+            f0_min: Minimum F0
+            f0_max: Maximum F0
             
         Returns:
             PerturbationMetrics
@@ -324,10 +324,10 @@ class PraatAnalyzer:
         f0_min: Optional[int] = None
     ) -> float:
         """
-        Extrait le Harmonics-to-Noise Ratio.
+        Extracts the Harmonics-to-Noise Ratio.
         
-        HNR mesure le rapport entre la composante harmonique et le bruit.
-        Valeurs typiques: 20+ dB (voix saine), <10 dB (voix pathologique)
+        HNR measures the ratio between the harmonic component and the noise.
+        Typical values: 20+ dB (healthy voice), <10 dB (pathological voice)
         
         Args:
             sound: Objet Sound Praat
@@ -338,7 +338,7 @@ class PraatAnalyzer:
         """
         f0_min = f0_min or self.config.pitch.f0_min
         
-        # --- SÉCURITÉ AJOUTÉE ---
+        # --- SAFETY ---
         if f0_min is None or np.isnan(f0_min):
             f0_min = 75.0
         # ------------------------
@@ -352,17 +352,17 @@ class PraatAnalyzer:
         f0_min: Optional[int] = None
     ) -> float:
         
-        #Extrait le Harmonics-to-Noise Ratio.
+        #Extracts the Harmonics-to-Noise Ratio.
         
-        # HNR mesure le rapport entre la composante harmonique et le bruit.
-        # Valeurs typiques: 20+ dB (voix saine), <10 dB (voix pathologique)
+        # HNR measures the ratio between the harmonic component and the noise.
+        # Typical values: 20+ dB (healthy voice), <10 dB (pathological voice)
         
         # Args:
         #    sound: Objet Sound Praat
         #    f0_min: F0 minimum
             
         #Returns:
-        #    HNR en dB
+        #    HNR in dB
         
         f0_min = f0_min or self.config.pitch.f0_min
         
@@ -377,16 +377,16 @@ class PraatAnalyzer:
         return_traces: bool = False
     ) -> Union[FormantMetrics, Tuple[FormantMetrics, Dict]]:
         """
-        Extrait les métriques des formants.
+        Extracts the formant metrics.
         
-        Mesure les formants uniquement aux instants de pulsation glottique
-        pour plus de précision.
+        Measures the formants only at the glottal pulse instants
+        for more precision.
         
         Args:
-            sound: Objet Sound Praat
-            f0_min: F0 minimum
-            f0_max: F0 maximum
-            return_traces: Retourner aussi les traces temporelles
+            sound: Praat Sound object
+            f0_min: Minimum F0
+            f0_max: Maximum F0
+            return_traces: Whether to also return the temporal traces
             
         Returns:
             FormantMetrics, optionnellement avec traces
@@ -417,13 +417,13 @@ class PraatAnalyzer:
             f2_list.append(np.nan if f2 is None else f2)
             f3_list.append(np.nan if f3 is None else f3)
         
-        # Conversion en arrays
+        # Conversion in arrays
         times = np.asarray(times, dtype=float)
         f1_list = np.asarray(f1_list, dtype=float)
         f2_list = np.asarray(f2_list, dtype=float)
         f3_list = np.asarray(f3_list, dtype=float)
         
-        # Statistiques (ignorer NaN)
+        # Statistics (ignore NaN)
         metrics = FormantMetrics(
             f1_mean=np.nanmean(f1_list),
             f2_mean=np.nanmean(f2_list),
@@ -451,19 +451,19 @@ class PraatAnalyzer:
         local_jitter: float
     ) -> VoiceQualityMetrics:
         """
-        Calcule le Dysphonia Severity Index.
+        Compute the Dysphonia Severity Index.
         """
         cfg = self.config.dsi
         
-        # --- SÉCURITÉ AJOUTÉE ---
-        # Si Praat n'a pas trouvé de fréquence fondamentale, on force 75.0 Hz
-        # pour éviter que la fonction "To Intensity" ne plante.
+        # --- ADDED SECURITY ---
+        # # If Praat did not find a fundamental frequency, we force 75.0 Hz
+        # to prevent the "To Intensity" function from crashing.
         min_pitch_for_intensity = pitch_metrics.mean_f0
         if min_pitch_for_intensity is None or np.isnan(min_pitch_for_intensity):
             min_pitch_for_intensity = 75.0
         # ------------------------
         
-        # Intensité
+        # Intensity
         intensity = call(sound, "To Intensity", min_pitch_for_intensity, 0.0)
         intensity_mean = call(intensity, "Get mean", 0, 0, "energy")
         intensity_min = call(intensity, "Get minimum", 0, 0, "Parabolic")
@@ -472,7 +472,7 @@ class PraatAnalyzer:
         mpt = sound.get_total_duration()
         
         # DSI
-        # On sécurise aussi le jitter pour éviter de multiplier par NaN
+        # Securize the jitter for avoiding multiplication by NaN
         jitter_val = 0.0 if np.isnan(local_jitter) else local_jitter
         jitter_percent = jitter_val * 100
         
@@ -504,7 +504,7 @@ class PraatAnalyzer:
         local_jitter: float
     ) -> VoiceQualityMetrics:
         
-        # Calcule le Dysphonia Severity Index.
+        # Computes the Dysphonia Severity Index.
         
         DSI = 0.13*MPT + 0.0053*F0_high - 0.26*I_low - 1.18*jitter% + 12.4
         
@@ -514,16 +514,16 @@ class PraatAnalyzer:
         - DSI < 1: Dysphonie sévère
         
         Args:
-            sound: Objet Sound Praat
-            pitch_metrics: Métriques de pitch déjà calculées
-            local_jitter: Jitter local déjà calculé
+            sound: Praat Sound object
+            pitch_metrics: Pitch metrics already computed
+            local_jitter: Local jitter already computed
             
         Returns:
-            VoiceQualityMetrics incluant le DSI
+            VoiceQualityMetrics including the DSI
         
         cfg = self.config.dsi
         
-        # Intensité
+        # Intensity
         intensity = call(sound, "To Intensity", pitch_metrics.mean_f0, 0.0)
         intensity_mean = call(intensity, "Get mean", 0, 0, "energy")
         intensity_min = call(intensity, "Get minimum", 0, 0, "Parabolic")
@@ -561,17 +561,17 @@ class PraatAnalyzer:
         include_traces: bool = False
     ) -> AcousticAnalysisResult:
         """
-        Analyse acoustique complète d'un signal.
+        Complete acoustic analysis of a signal.
         
         Args:
-            audio: Signal audio (numpy array)
-            sr: Fréquence d'échantillonnage
-            f0_min: F0 minimum
-            f0_max: F0 maximum
-            include_traces: Inclure les traces temporelles des formants
+            audio: Audio signal (numpy array)
+            sr: Sampling frequency
+            f0_min: Minimum F0
+            f0_max: Maximum F0
+            include_traces: Whether to include the temporal traces of the formants
             
         Returns:
-            AcousticAnalysisResult avec toutes les métriques
+            AcousticAnalysisResult with all the metrics
         """
         sound = self._create_sound(audio, sr)
         return self._analyze_sound(sound, f0_min, f0_max, include_traces)
@@ -584,13 +584,13 @@ class PraatAnalyzer:
         include_traces: bool = False
     ) -> AcousticAnalysisResult:
         """
-        Analyse acoustique complète d'un fichier audio.
+        Complete acoustic analysis of an audio file.
         
         Args:
-            file_path: Chemin vers le fichier audio
-            f0_min: F0 minimum
-            f0_max: F0 maximum
-            include_traces: Inclure les traces temporelles
+            file_path: Path to the audio file
+            f0_min: Minimum F0
+            f0_max: Maximum F0
+            include_traces: Whether to include the temporal traces of the formants
             
         Returns:
             AcousticAnalysisResult
@@ -605,7 +605,7 @@ class PraatAnalyzer:
         f0_max: Optional[int] = None,
         include_traces: bool = False
     ) -> AcousticAnalysisResult:
-        """Analyse interne d'un objet Sound."""
+        """Internal analysis of a Sound object."""
         
         # Pitch
         pitch_metrics = self.extract_pitch_metrics(sound, f0_min, f0_max)
@@ -650,16 +650,16 @@ def quick_analysis(
     f0_max: int = 500
 ) -> pd.DataFrame:
     """
-    Fonction utilitaire pour une analyse rapide.
+    Utility function for quick analysis.
     
     Args:
-        audio: Signal audio
-        sr: Sample rate
-        f0_min: F0 minimum
-        f0_max: F0 maximum
+        audio: Audio signal
+        sr: Sampling frequency
+        f0_min: Minimum F0
+        f0_max: Maximum F0
         
     Returns:
-        DataFrame avec les métriques principales
+        DataFrame with the main metrics
     """
     analyzer = PraatAnalyzer()
     result = analyzer.analyze_signal(audio, sr, f0_min, f0_max)

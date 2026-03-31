@@ -2,25 +2,24 @@
 Pneumophonic Analysis Pipeline
 ==============================
 
-Package Python pour l'analyse intégrée des fonctions respiratoires-phonatoires.
+Package Python for integrated analysis of respiratory-phonatory functions.
 
-Basé sur les travaux de la thèse:
+Based on the thesis work:
 "Integrated Analysis of Respiratory–Phonatory Functions: Normative Patterns Across Sex and Age"
 Bianca Zocco, Politecnico di Milano, 2024-2025
 
-Modules principaux
-------------------
-- config : Configuration globale du pipeline
-- io_utils : Lecture/écriture des fichiers (OEP, audio, Excel)
-- sync : Synchronisation entre signaux OEP et audio
-- audio_processing : Traitement du signal audio (noise reduction, features)
-- acoustic_features : Extraction des paramètres acoustiques via Praat
-- segmentation : Segmentation des signaux (FRC, novelty, modulation)
-- task_analyzers : Analyseurs spécifiques par tâche vocale
-- visualization : Visualisation des signaux et résultats
-- pipeline : Orchestration du pipeline complet
+Main modules
+- config: Global pipeline configuration
+- io_utils: File reading/writing (OEP, audio, Excel)
+- sync: Synchronization between OEP and audio signals
+- audio_processing: Audio signal processing (noise reduction, features)
+- acoustic_features: Extraction of acoustic parameters via Praat
+- segmentation: Signal segmentation (FRC, novelty, modulation)
+- task_analyzers: Task-specific vocal analyzers
+- visualization: Visualization of signals and results
+- pipeline: Orchestration of the full pipeline
 
-Exemple d'utilisation
+Usage example
 ---------------------
 ```python
 from pneumophonic_analysis import PneumophonicPipeline, create_config
@@ -35,15 +34,15 @@ config = create_config(
 # Pipeline
 pipeline = PneumophonicPipeline(config)
 
-# Analyse d'un sujet
+# Analyze a subject
 result = pipeline.analyze_subject("20260218_GaBa")
 
-# Analyse batch
+# Batch analysis
 batch = pipeline.analyze_batch()
 pipeline.export_results(batch, "results.xlsx")
 ```
 
-Utilisation rapide
+Quick Use
 ------------------
 ```python
 from pneumophonic_analysis import run_pipeline
@@ -57,7 +56,7 @@ results = run_pipeline(
 """
 
 __version__ = "1.0.0"
-__author__ = "Pipeline basé sur les travaux de Bianca Zocco"
+__author__ = "Pipeline based on work by Bianca Zocco - DEIB Thesis aa 2025/2026"
 __email__ = ""
 
 # Configuration
@@ -148,7 +147,7 @@ from .pipeline import (
 )
 
 
-# API publique
+# API (public)
 __all__ = [
     # Version
     "__version__",
