@@ -43,8 +43,9 @@ pip install -e .
 
 ## Main Dependencies
 - **numpy, scipy, pandas: scientific computing**
+  
 - **librosa: audio processing**
-- 
+  
 -**noisereduce: noise reduction**
   
 -**praat-parselmouth:** Python interface for Praat
