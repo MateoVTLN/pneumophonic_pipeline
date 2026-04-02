@@ -248,8 +248,8 @@ class PneumophonicPipeline:
             sync_audio, sr_sync = loader.load_sync_signal()
             # Note: the full sync requires also the OEP data
             logger.debug(f"Sync signal loaded: {len(sync_audio)} samples")
-        except FileNotFoundError:
-            analysis.warnings.append("Sync signal not found, skipping synchronization")
+        except Exception as e:
+            analysis.warnings.append(f"Sync signal error: {e}")
             sync_audio = None
         
         # Analyze each task
@@ -378,7 +378,16 @@ class PneumophonicPipeline:
                 batch.subjects[analysis.subject_id] = analysis
                 
             except Exception as e:
-                logger.error(f"Error with subject {subject_folder}: {e}")
+                import traceback
+                # old : logger.error(f"Erreur sujet {subject_folder}: {e}")
+                logger.error(f"Error with subject {subject_folder}:\n{traceback.format_exc()}")
+                
+                failed = SubjectAnalysis(
+                    subject_id=subject_folder.name,
+                    subject_folder=subject_folder,
+                    errors=[str(e)]
+                )
+                batch.subjects[subject_folder.name] = failed
                 if stop_on_error:
                     raise
         
@@ -392,14 +401,49 @@ class PneumophonicPipeline:
         output_path: Union[str, Path],
         include_errors: bool = True
     ):
-        """
-        Export the results to Excel.
+        """Exporte les résultats vers Excel."""
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        Args:
-            results: RResults to export
-            output_path: Path to the output file
-            include_errors: Include the errors sheet
-        """
+        df_main = results.to_dataframe()
+        df_errors = None
+        if include_errors and isinstance(results, BatchAnalysis):
+            df_errors = results.get_errors_summary()
+        
+        has_results = not df_main.empty
+        has_errors = df_errors is not None and not df_errors.empty
+        
+        if not has_results and not has_errors:
+            logger.warning("No results to export")
+            df_summary = pd.DataFrame({
+                'Status': ['No results'],
+                'Message': ['All analyses failed or no subjects found']
+            })
+            df_summary.to_excel(output_path, sheet_name='Summary', index=False)
+            return
+        
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            if has_results:
+                df_main.to_excel(writer, sheet_name='Results', index=False)
+            if has_errors:
+                df_errors.to_excel(writer, sheet_name='Errors', index=False)
+        
+        logger.info(f"Results exported: {output_path}")
+    """
+    def export_results(
+        self,
+        results: Union[SubjectAnalysis, BatchAnalysis],
+        output_path: Union[str, Path],
+        include_errors: bool = True
+    ):
+        
+        #Export the results to Excel.
+        
+        #Args:
+        #    results: RResults to export
+        #    output_path: Path to the output file
+        #    include_errors: Include the errors sheet
+        #
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
@@ -416,7 +460,7 @@ class PneumophonicPipeline:
                     df_errors.to_excel(writer, sheet_name='Errors', index=False)
         
         logger.info(f"RResults exported: {output_path}")
-    
+    """
     def generate_report(
         self,
         results: BatchAnalysis,
