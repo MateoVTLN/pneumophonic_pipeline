@@ -1,8 +1,9 @@
 from pathlib import Path
 
+_repo_root = Path(__file__).parent
 data_roots = [
-    Path(r"C:\Users\Matéo\OneDrive\Documents\GitHub\pneumophonic_pipeline\data_root\healthy_subjects"),
-    Path(r"C:\Users\Matéo\OneDrive\Documents\GitHub\pneumophonic_pipeline\data_root\pathological_subjects")
+    _repo_root / "data_root" / "healthy_subjects",
+    _repo_root / "data_root" / "pathological_subjects",
 ]
 
 for root in data_roots:
