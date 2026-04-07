@@ -54,10 +54,10 @@ pip install -e .
   
 -**openpyxl:** Excel read/write
 
-📁 Expected Data Structure
+📁 Data Structure
 ```
 data_root/
-├── 20260218_GaBa/           # Format: YYYYMMDD_SubjectID
+├── 20260218_XxXx/           # Format: YYYYMMDD_SubjectID
 │   ├── csv/
 │   │   └── XxXxVocali.csv   # OEP data
 │   ├── renders/
@@ -110,7 +110,7 @@ pipeline = PneumophonicPipeline(config)
 
 # 3. Analyze subject specific
 subject_result = pipeline.analyze_subject(
-    "20260218_GaBa",
+    "20260218_XxXx",
     tasks=['vowel', 'trill']
 )
 
@@ -171,12 +171,12 @@ from pneumophonic_analysis import Visualizer, DataLoader
 import librosa
 
 # load data
-loader = DataLoader("20260218_GaBa")
+loader = DataLoader("20260218_XxXx")
 audio, sr = loader.load_audio("a.wav")
 # Visualize
 viz = Visualizer()
 # Waveform
-fig = viz.plot_waveform(audio, sr, title="Vowel /a/ - GaBa")
+fig = viz.plot_waveform(audio, sr, title="Vowel /a/ - XxXx")
 # Spectrogram
 fig = viz.plot_spectrogram(audio, sr)
 # Mel-spectrogram
