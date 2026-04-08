@@ -208,3 +208,10 @@ __all__ = [
     "BatchAnalysis",
     "run_pipeline",
 ]
+
+# Paired features
+from .paired_features import (
+    PairedFeatureExtractor,
+    PairedFrame,
+    OEPFrameFeatures,
+)
