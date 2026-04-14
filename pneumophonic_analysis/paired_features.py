@@ -320,6 +320,8 @@ class PairedFeatureExtractor:
         flow_cutoff_hz: float = 10.0,
         audio_start_sec: Optional[float] = None,
         audio_end_sec: Optional[float] = None,
+        auto_trim_phonation: bool = True,
+        trim_top_db: int = 30,
     ) -> PairedFrame:
         """
         Full extraction pipeline for one subject × task.
@@ -339,6 +341,10 @@ class PairedFeatureExtractor:
             flow_cutoff_hz:    LP cutoff before differentiation
             audio_start_sec:   Optional start trim (audio time, seconds)
             audio_end_sec:     Optional end trim (audio time, seconds)
+            auto_trim_phonation: If True, refine start/end to actual phonation
+                                 onset/offset within the Excel window using
+                                 detect_phonation_bounds (default: True)
+            trim_top_db:       Silence threshold in dB for auto-trim (default: 30)
 
         Returns:
             PairedFrame with unified DataFrame and component objects
@@ -376,6 +382,34 @@ class PairedFeatureExtractor:
             audio_start_sec = 0.0
         if audio_end_sec is None:
             audio_end_sec = len(audio) / sr
+
+        # ---- 3b. Auto-trim to actual phonation within the window ----
+        if auto_trim_phonation:
+            from .segmentation import detect_phonation_bounds as _detect_bounds
+
+            # Extract the coarse window first
+            coarse_start_sample = int(audio_start_sec * sr)
+            coarse_end_sample = int(audio_end_sec * sr)
+            coarse_segment = audio[coarse_start_sample:coarse_end_sample]
+
+            # Detect phonation onset/offset within that window
+            onset_sample, offset_sample = _detect_bounds(
+                coarse_segment, sr, top_db=trim_top_db
+            )
+
+            # Convert back to absolute times
+            trimmed_start = audio_start_sec + onset_sample / sr
+            trimmed_end = audio_start_sec + offset_sample / sr
+
+            logger.info(
+                f"  auto-trim: {audio_start_sec:.2f}–{audio_end_sec:.2f}s "
+                f"→ {trimmed_start:.2f}–{trimmed_end:.2f}s "
+                f"(removed {(trimmed_start - audio_start_sec):.2f}s head, "
+                f"{(audio_end_sec - trimmed_end):.2f}s tail)"
+            )
+
+            audio_start_sec = trimmed_start
+            audio_end_sec = trimmed_end
 
         # ---- 4. Extract matching OEP segment ----
         oep_segment = self.synchronizer.extract_oep_segment(
