@@ -57,21 +57,27 @@ pip install -e .
 📁 Data Structure
 ```
 data_root/
-├── 20260218_XxXx/           # Format: YYYYMMDD_SubjectID
-│   ├── csv/
-│   │   └── XxXxVocali.csv   # OEP data
-│   ├── renders/
-│   │   ├── a.wav            # Vowel A
-│   │   ├── r.wav            # Rolled R
-│   │   └── ...
-│   ├── sync_signal.wav      # Sync signal
-│   └── XxXx_audio.xlsx      # Timings 
-├── 20260226_YyYy/
-│   └── ...
-└── ...
+│   ├──pathological_subjects/
+|   |   (...)
+│   └──healthy_subjects/           
+│       ├──AAAADDMM_XxXx/           # Format: YYYYDDMM_SubjectID
+│       |   ├── csv/
+│       |   |    └── XxXx_vocali.csv   # OEP data
+│       |   ├── renders/
+│       |   │   ├── a.wav            # Vowel A
+│       |   │   ├── r.wav            # Rolled R
+│       |   │   └── (...)            # Other Tasks
+│       |   ├── sync_signal.wav      # Sync signal
+│       |   └── XxXx_audio.xlsx      # Timings 
+|       └──AAAADDMM_YyYy/ (same pattern for any other subject)
+│           └── (...)
+|
+data_target/ (where all plots and results will be loaded)
+│   ├──pathological_subjects/
+│   └──healthy_subjects/ 
 ```
 
-## Usage
+## Usage Examples
 
 ### Quick Analysis
 
@@ -190,14 +196,13 @@ viz.save_figure(fig, "output/spectrogram.png")
 ```python
 from pneumophonic_analysis import FRCSegmenter, TrillAnalyzer
 
-# Analyse de la roulée avec segmentation FRC
 analyzer = TrillAnalyzer()
 
 result = analyzer.analyze(
     audio=audio,
     sr=sr,
     subject_id="RoDi",
-    frc_cross_time=3.5  # Temps du crossing FRC en secondes
+    frc_cross_time=3.5 
 )
 
 print(f"Fréquence de modulation:")
