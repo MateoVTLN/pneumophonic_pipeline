@@ -322,6 +322,7 @@ class PairedFeatureExtractor:
         audio_end_sec: Optional[float] = None,
         auto_trim_phonation: bool = True,
         trim_top_db: int = 30,
+        oep_falling_edge_sec: Optional[float] = None,
     ) -> PairedFrame:
         """
         Full extraction pipeline for one subject × task.
@@ -332,6 +333,7 @@ class PairedFeatureExtractor:
             audio_filename:    Audio file in renders/ (e.g. "a.wav")
             oep_csv_path:      Relative path to OEP CSV within subject folder
             take_number:       Which take in the OEP sync to align to
+                               (ignored if oep_falling_edge_sec is provided)
             audio_onset_index: Which onset in the audio sync (0=rising, 1=falling)
             oep_col_vcw:       Column for chest wall volume
             oep_col_vrcp:      Column for pulmonary rib cage (A)
@@ -345,6 +347,11 @@ class PairedFeatureExtractor:
                                  onset/offset within the Excel window using
                                  detect_phonation_bounds (default: True)
             trim_top_db:       Silence threshold in dB for auto-trim (default: 30)
+            oep_falling_edge_sec: If provided, use this OEP time (seconds) as
+                                  the falling edge instead of auto-detecting via
+                                  take_number. This comes from the 'falling edge'
+                                  column of the subject's Excel timing file and
+                                  is the most reliable sync method.
 
         Returns:
             PairedFrame with unified DataFrame and component objects
@@ -363,19 +370,46 @@ class PairedFeatureExtractor:
         )
 
         # ---- 2. Synchronize ----
-        sync_result = self.synchronizer.synchronize(
-            sync_audio=sync_audio,
-            sr_audio=sr_sync,
-            oep_df=oep_df,
-            take_number=take_number,
-            fs_oep=fs_oep,
-            audio_onset_index=audio_onset_index,
-        )
-        logger.info(
-            f"  sync offset = {sync_result.time_offset_sec:.4f}s  "
-            f"audio_edge={sync_result.sync_falling_edge_sample}  "
-            f"oep_edge={sync_result.oep_falling_edge_sample}"
-        )
+        if oep_falling_edge_sec is not None:
+            # Direct sync: use the known OEP falling edge from Excel
+            oep_falling_sample = int(oep_falling_edge_sec * fs_oep)
+
+            # Detect audio falling edge as usual
+            audio_falling_sample = self.synchronizer.detect_falling_edge_audio(
+                sync_audio, sr_sync, audio_onset_index
+            )
+            audio_falling_time = audio_falling_sample / sr_sync
+
+            time_offset = audio_falling_time - oep_falling_edge_sec
+
+            sync_result = SyncResult(
+                sync_falling_edge_sample=audio_falling_sample,
+                oep_falling_edge_sample=oep_falling_sample,
+                time_offset_sec=time_offset,
+                sync_onsets_samples=np.array([audio_falling_sample]),
+                oep_sync_onsets_samples=np.array([oep_falling_sample]),
+            )
+            logger.info(
+                f"  sync (Excel falling edge) = {oep_falling_edge_sec:.2f}s  "
+                f"audio_edge={audio_falling_sample}  "
+                f"oep_edge={oep_falling_sample}  "
+                f"offset={time_offset:.4f}s"
+            )
+        else:
+            # Fallback: auto-detect via take_number
+            sync_result = self.synchronizer.synchronize(
+                sync_audio=sync_audio,
+                sr_audio=sr_sync,
+                oep_df=oep_df,
+                take_number=take_number,
+                fs_oep=fs_oep,
+                audio_onset_index=audio_onset_index,
+            )
+            logger.info(
+                f"  sync (auto) offset = {sync_result.time_offset_sec:.4f}s  "
+                f"audio_edge={sync_result.sync_falling_edge_sample}  "
+                f"oep_edge={sync_result.oep_falling_edge_sample}"
+            )
 
         # ---- 3. Determine audio segment boundaries ----
         if audio_start_sec is None:
