@@ -9,15 +9,24 @@ _repo_root = Path(__file__).parent
 print("\n Which subjects to analyse?")
 print("  1. healthy subjects")
 print("  2. pathological subjects")
+print("  3. singers")
+print("  4. non-singers")
+
 while True:
-    choice = input("Enter 1 or 2: ").strip()
+    choice = input("Enter 1, 2, 3, or 4: ").strip()
     if choice == "1":
         batch = "healthy_subjects"
         break
     elif choice == "2":
         batch = "pathological_subjects"
         break
-    print("Please enter 1 or 2.")
+    elif choice == "3":
+        batch = "singer_subjects"
+        break
+    elif choice == "4":
+        batch = "notsinger_subjects"
+        break
+    print("Please enter 1, 2, 3, or 4.")
 
 data_roots = _repo_root / "data_root" / batch
 data_target = _repo_root / "data_target" / batch

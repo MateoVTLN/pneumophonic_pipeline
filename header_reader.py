@@ -8,7 +8,7 @@ from pathlib import Path
 from pneumophonic_analysis.io_utils import DataLoader
 
 
-loader = DataLoader("data_root/healthy_subjects/20251205_MaCa")
-oep = loader.load_oep_data("csv/MaCa_Vocali.csv")
+loader = DataLoader("data_root/healthy_subjects/YYYYMMDD_Subject_ID/phonema_a_2.wav")
+oep = loader.load_oep_data("csv/Subject_ID_Vocali.csv")
 print(oep.head())
 print(oep.columns.tolist())

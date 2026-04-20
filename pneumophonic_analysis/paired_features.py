@@ -115,9 +115,21 @@ def _butterworth_lowpass(data: np.ndarray, cutoff: float, fs: float, order: int 
     Matches the thesis methodology (Section 3.5.2):
     "filtered using a fourth-order low-pass Butterworth filter
      with a cutoff frequency of 10 Hz"
+
+    Falls back to unfiltered data if the segment is too short for filtfilt.
     """
     nyq = 0.5 * fs
     b, a = sp_signal.butter(order, cutoff / nyq, btype='low')
+
+    # filtfilt requires len(data) > padlen = 3 * max(len(a), len(b)) - 1
+    min_length = 3 * max(len(a), len(b))
+    if len(data) < min_length:
+        logger.warning(
+            f"  OEP segment too short for Butterworth filter "
+            f"({len(data)} < {min_length} samples) — using unfiltered data"
+        )
+        return data.copy()
+
     return sp_signal.filtfilt(b, a, data)
 
 
@@ -516,6 +528,63 @@ class PairedFeatureExtractor:
         return paired
 
     # ------------------------------------------------------------------
+    # F0 cleanup
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def clean_f0(
+        f0: np.ndarray,
+        voiced: np.ndarray,
+        f0_min: float = 60.0,
+        f0_max: float = 350.0,
+        median_kernel: int = 5,
+    ) -> np.ndarray:
+        """
+        Clean F0 track by removing octave-doubling artifacts.
+
+        Two-step process:
+        1. Physiological clamp: any F0 outside [f0_min, f0_max] is set to NaN
+           and the frame is marked unvoiced. This catches gross octave jumps
+           (e.g. 400-500 Hz spikes in male connected speech).
+        2. Median filter: a short sliding window (default 5 frames ≈ 75ms)
+           smooths remaining isolated outliers without blurring real prosody.
+
+        Args:
+            f0:            Raw F0 array (NaN for unvoiced frames)
+            voiced:        Voiced flag array (1.0 = voiced)
+            f0_min:        Minimum plausible F0 in Hz (default: 60)
+            f0_max:        Maximum plausible F0 in Hz (default: 350)
+            median_kernel: Median filter kernel size in frames (default: 5)
+
+        Returns:
+            Cleaned F0 array (NaN for unvoiced/rejected frames)
+        """
+        from scipy.ndimage import median_filter
+
+        f0_clean = f0.copy()
+
+        # Step 1: clamp to physiological range
+        out_of_range = (f0_clean < f0_min) | (f0_clean > f0_max)
+        f0_clean[out_of_range] = np.nan
+
+        # Step 2: median filter on voiced segments only
+        # Replace NaN temporarily for filtering, then restore
+        valid_mask = ~np.isnan(f0_clean)
+        if np.sum(valid_mask) > median_kernel:
+            # Fill NaN with interpolation for median filter, then mask back
+            f0_filled = f0_clean.copy()
+            f0_filled[~valid_mask] = np.interp(
+                np.where(~valid_mask)[0],
+                np.where(valid_mask)[0],
+                f0_clean[valid_mask],
+            )
+            f0_filtered = median_filter(f0_filled, size=median_kernel)
+            # Only keep filtered values where original was valid
+            f0_clean[valid_mask] = f0_filtered[valid_mask]
+
+        return f0_clean
+
+    # ------------------------------------------------------------------
     # DataFrame assembly
     # ------------------------------------------------------------------
 
@@ -529,7 +598,7 @@ class PairedFeatureExtractor:
         Merge audio and OEP features into a single DataFrame.
 
         Audio columns:
-            time, f0, voiced, voicing_prob, energy, spectral_centroid,
+            time, f0, f0_raw, voiced, voicing_prob, energy, spectral_centroid,
             mfcc_0 … mfcc_12
 
         OEP columns:
@@ -541,8 +610,24 @@ class PairedFeatureExtractor:
         data = {'time': time_axis}
 
         # --- Audio: scalar per-frame features ---
-        data['f0'] = audio_feats.f0[:n_frames]
-        data['voiced'] = audio_feats.voiced_flag[:n_frames].astype(float)
+        f0_raw = audio_feats.f0[:n_frames]
+        voiced_flag = audio_feats.voiced_flag[:n_frames].astype(float)
+
+        # Clean F0 (remove octave doublings)
+        f0_clean = self.clean_f0(f0_raw, voiced_flag)
+
+        # Update voiced flag: frames where F0 was clamped are now unvoiced
+        voiced_clean = voiced_flag.copy()
+        voiced_clean[np.isnan(f0_clean) & (voiced_flag == 1.0)] = 0.0
+
+        n_rejected = int(np.sum(np.isnan(f0_clean) & ~np.isnan(f0_raw)))
+        if n_rejected > 0:
+            logger.info(f"  F0 cleanup: {n_rejected} frames rejected "
+                        f"({n_rejected / n_frames * 100:.1f}%)")
+
+        data['f0'] = f0_clean
+        data['f0_raw'] = f0_raw
+        data['voiced'] = voiced_clean
         data['voicing_prob'] = audio_feats.voiced_probs[:n_frames]
 
         # Energy (RMS from STFT)

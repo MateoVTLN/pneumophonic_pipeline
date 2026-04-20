@@ -57,42 +57,66 @@ pip install -e .
 📁 Data Structure
 ```
 data_root/
+│   ├── singer_subjects/
+│   │    └── AAAADDMM_SubjectID/   # Format: YYYYDDMM_SubjectID
+│   │        ├── csv/
+│   │        │    └── SubjectID_taskname.csv    ← one OEP CSV per task
+│   │        ├── renders/
+│   │        │    └── taskname.wav              ← audio filename = task label
+│   │        ├── sync_signal.wav
+│   │        └── SubjectID_audio.xlsx          ← same Timing sheet format
+│   │
+│   ├── notsinger_subjects/
+│   │    └── AAAADDMM_SubjectID/   # Format: YYYYDDMM_SubjectID
+│   │        ├── csv/
+│   │        │    └── SubjectID_taskname.csv    ← one OEP CSV per task
+│   │        ├── renders/
+│   │        │    └── taskname.wav              ← audio filename = task label
+│   │        ├── sync_signal.wav
+│   │        └── SubjectID_audio.xlsx          ← same Timing sheet format
+
 │   ├──pathological_subjects/
-|   |   (...)
+│   |   (...)
+│   |
 │   └──healthy_subjects/           
-│       ├──AAAADDMM_XxXx/           # Format: YYYYDDMM_SubjectID
-│       |   ├── csv/
-│       |   |    └── XxXx_vocali.csv   # OEP data
-│       |   ├── renders/
-│       |   │   ├── a.wav            # Vowel A
-│       |   │   ├── r.wav            # Rolled R
-│       |   │   └── (...)            # Other Tasks
-│       |   ├── sync_signal.wav      # Sync signal
-│       |   └── XxXx_audio.xlsx      # Timings 
-|       └──AAAADDMM_YyYy/ (same pattern for any other subject)
+│       ├──AAAADDMM_SubjectID/           
+│       │   ├── csv/
+│       │   │    └── SubjectID_vocali.csv   # OEP data
+│       │   ├── renders/
+│       │   │   ├── a.wav            # Vowel A
+│       │   │   ├── r.wav            # Rolled R
+│       │   │   └── (...)            # Other Tasks
+│       │   ├── sync_signal.wav      # Sync signal
+│       │   └── SubjectID_audio.xlsx      # Timings 
+│       └──AAAADDMM_SubjectID/ (same pattern for any other subject)
 │           └── (...)
-|
+│
 data_target/ (where all plots and results will be loaded)
 │   ├──pathological_subjects/
 │   └──healthy_subjects/ 
+│   └──singer_subjects/ 
+│   └──notsinger_subjects/ 
 ```
 
 ## Usage Examples
+##### Here are some Python scripts made fo a subject-wise or batch analysis :
+### Quick Analysis (subject-wise)
 
-### Quick Analysis
+##### 1) Import the subject folder in the gitignored section 
 
-```python
-from pneumophonic_analysis import run_pipeline
-
-results = run_pipeline(
-    data_root="/path/to/data",
-    output_root="/path/to/output",
-    tasks=['vowel', 'trill', 'glide']
-)
-
-print(f"Analyzed {results.n_subjects} subjects")
-print(f"Success: {results.n_successful}, Failures: {results.n_failed}")
 ```
+data_root/
+│   ├── singer_subjects/
+│   │       └── (...)       <-- here
+│   ├── notsinger_subjects/
+│   │       └── (...)       <-- here
+│   ├── healthy_subjects/
+│   │       └── (...)       <-- here
+│   ├── pathological_subjects/
+│   │       └── (...)       <-- here
+
+```
+##### 2) 
 
 ### Detailed Usage
 
