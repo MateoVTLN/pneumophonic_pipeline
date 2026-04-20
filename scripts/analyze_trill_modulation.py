@@ -2,18 +2,12 @@
 """
 Example: R trill analysis with modulation frequency
 ====================================================
-
 This script demonstrates the specific analysis of the alveolar trill (R trill)
 including modulation frequency extraction and FRC segmentation.
 
 The typical modulation frequency of the trill is 20-30 Hz,
 corresponding to the vibration of the tongue tip.
 
-Usage:
-    python analyze_trill_modulation.py /path/to/audio.wav
-
-Or with a timings file:
-    python analyze_trill_modulation.py /path/to/audio.wav --frc-time 3.5
 """
 
 import sys

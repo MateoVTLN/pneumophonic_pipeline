@@ -1,7 +1,9 @@
 """
+
 Quick test script for paired feature extraction.
 Reads phonation timings from the subject's Excel file and automatically
 selects the correct OEP CSV and take number for each task.
+
 """
 import logging
 from pathlib import Path
@@ -12,7 +14,7 @@ from pneumophonic_analysis.paired_features import PairedFeatureExtractor
 logging.basicConfig(level=logging.INFO)
 
 # ---- Paths ----
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT    = PROJECT_ROOT / "data_root"
 DATA_TARGET  = PROJECT_ROOT / "data_target"
 

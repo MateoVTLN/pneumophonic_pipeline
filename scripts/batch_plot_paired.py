@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from pneumophonic_analysis.paired_features import PairedFeatureExtractor
 
 # ---- Paths ----
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_TARGET  = PROJECT_ROOT / "data_target"
 
 BATCHES = ["healthy_subjects", "pathological_subjects"]

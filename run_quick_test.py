@@ -1,62 +1,118 @@
-from pneumophonic_analysis import run_pipeline
+"""
+Quick Test — Pneumophonic Pipeline
+====================================
+
+Entry point for running different analysis modes.
+Run from the project root:
+
+    python run_quick_test.py
+"""
 import logging
-logging.basicConfig(level=logging.DEBUG)
+import subprocess
+import sys
 from pathlib import Path
 
-_repo_root = Path(__file__).parent
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Batch selection
-print("\n Which subjects to analyse?")
-print("  1. healthy subjects")
-print("  2. pathological subjects")
-print("  3. singers")
-print("  4. non-singers")
+PROJECT_ROOT = Path(__file__).parent
+SCRIPTS_DIR  = PROJECT_ROOT / "scripts"
 
-while True:
-    choice = input("Enter 1, 2, 3, or 4: ").strip()
-    if choice == "1":
-        batch = "healthy_subjects"
-        break
-    elif choice == "2":
-        batch = "pathological_subjects"
-        break
-    elif choice == "3":
-        batch = "singer_subjects"
-        break
-    elif choice == "4":
-        batch = "notsinger_subjects"
-        break
-    print("Please enter 1, 2, 3, or 4.")
+# ---- Available modes ----
+MODES = {
+    '1': ('Extract paired features (single subject)',       'test_paired.py'),
+    '2': ('Batch extract all subjects',                     'batch_extract.py'),
+    '3': ('Explore paired data (interactive plots)',        'explore_paired.py'),
+    '4': ('Batch generate PDF plots',                       'batch_plot_paired.py'),
+    '5': ('Run M2 correlation analysis',                    'm2_correlation.py'),
+    '6': ('Diagnostic tools (OEP headers, sync, inventory)','tools.py'),
+    '7': ('Run legacy acoustic analysis (Zocco pipeline)',  None),
+}
 
-data_roots = _repo_root / "data_root" / batch
-data_target = _repo_root / "data_target" / batch
 
-# Subject exclusion (if dataset too noisy or simply to exclude)
-available = sorted([d.name for d in data_roots.glob("*_*") if d.is_dir()])
-subjects_to_run = None
+def run_legacy_analysis():
+    """Original acoustic-only analysis via PneumophonicPipeline."""
+    from pneumophonic_analysis import run_pipeline
 
-if available:
-    print(f"\nSubjects found in {batch}:")
-    for s in available:
-        print(f"  - {s}")
-    print("\nEnter subject names to EXCLUDE (comma-separated), or press Enter to include all:")
-    raw = input("> ").strip()
-    if raw:
-        excluded = {s.strip() for s in raw.split(",")}
-        unknown = excluded - set(available)
-        if unknown:
-            print(f"Warning: these subjects were not found and will be ignored: {unknown}")
-        subjects_to_run = [s for s in available if s not in excluded]
-        print(f"\nRunning with {len(subjects_to_run)} subject(s): {subjects_to_run}")
-    else:
-        print(f"\nRunning with all {len(available)} subject(s).")
-else:
-    print(f"\nNo subjects found in {data_roots}. Proceeding anyway.")
+    # Batch selection
+    batches = ["healthy_subjects", "pathological_subjects"]
+    print("\nWhich subjects to analyse?")
+    for idx, name in enumerate(batches):
+        print(f"  [{idx}] {name}")
+    while True:
+        sel = input("Select by number: ").strip()
+        if sel.isdigit() and 0 <= int(sel) < len(batches):
+            batch = batches[int(sel)]
+            break
+        print("Invalid selection.")
 
-results = run_pipeline(
-    data_root=data_roots,
-    output_root=data_target,
-    subjects=subjects_to_run,
-    tasks=['vowel', 'trill', 'glide']
-)
-print(f"Analyzed {results.n_subjects} subjects")
+    data_root = PROJECT_ROOT / "data_root" / batch
+    data_target = PROJECT_ROOT / "data_target" / batch
+
+    # Subject discovery
+    available = sorted([d.name for d in data_root.glob("*_*") if d.is_dir()])
+    subjects_to_run = None
+
+    if available:
+        print(f"\n{len(available)} subjects found in {batch}.")
+        print("Enter subject names to EXCLUDE (comma-separated), or press Enter for all:")
+        raw = input("> ").strip()
+        if raw:
+            excluded = {s.strip() for s in raw.split(",")}
+            subjects_to_run = [s for s in available if s not in excluded]
+            print(f"Running with {len(subjects_to_run)} subject(s).")
+        else:
+            print(f"Running with all {len(available)} subject(s).")
+
+    results = run_pipeline(
+        data_root=data_root,
+        output_root=data_target,
+        subjects=subjects_to_run,
+        tasks=['vowel', 'trill', 'glide']
+    )
+    print(f"\nAnalyzed {results.n_subjects} subjects")
+    print(f"Success: {results.n_successful}, Failed: {results.n_failed}")
+
+
+def main():
+    print("\n" + "=" * 50)
+    print("  PNEUMOPHONIC PIPELINE")
+    print("=" * 50)
+
+    for key, (desc, _) in MODES.items():
+        print(f"  [{key}] {desc}")
+    print(f"  [q] Quit")
+
+    while True:
+        choice = input("\nSelect mode: ").strip().lower()
+
+        if choice == 'q':
+            break
+
+        if choice not in MODES:
+            print("Invalid selection.")
+            continue
+
+        desc, script = MODES[choice]
+
+        if script is None:
+            # Legacy mode runs in-process
+            run_legacy_analysis()
+        else:
+            script_path = SCRIPTS_DIR / script
+            if not script_path.exists():
+                # Fallback: check project root (in case scripts haven't been moved yet)
+                script_path = PROJECT_ROOT / script
+            if not script_path.exists():
+                print(f"  Script not found: {script}")
+                print(f"  Looked in: {SCRIPTS_DIR} and {PROJECT_ROOT}")
+                continue
+
+            print(f"\n  Running: {script_path.name}")
+            print("-" * 50)
+            subprocess.run([sys.executable, str(script_path)], cwd=str(PROJECT_ROOT))
+
+        print("\n" + "-" * 50)
+
+
+if __name__ == '__main__':
+    main()

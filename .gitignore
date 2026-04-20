@@ -12,7 +12,7 @@ __pycache__/
 # Folders for data and output
 data_root/
 data_target/
-
+*.h5
 # System Files for Windows/Mac
 .DS_Store
 Thumbs.db

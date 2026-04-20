@@ -6,11 +6,6 @@ Example: Batch analysis of multiple subjects
 This script demonstrates how to use the pipeline to analyze
 all subjects in a data directory.
 
-Usage:
-    python analyze_batch.py /path/to/data_root /path/to/output
-
-Example:
-    python analyze_batch.py /data/subjects /results
 """
 
 import sys

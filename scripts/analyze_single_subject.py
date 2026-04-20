@@ -6,11 +6,6 @@ Example: Analysis of a single subject
 This script demonstrates how to use the pipeline to analyze
 data from a single subject.
 
-Usage:
-    python analyze_single_subject.py /path/to/subject_folder
-
-Example:
-    python analyze_single_subject.py /data/20260218_GaBa
 """
 
 import sys

@@ -3,8 +3,7 @@ Batch extraction of paired features for all subjects × all tasks.
 Reads each subject's Excel timing file, resolves OEP CSV + falling edge,
 and produces HDF5 files in data_target/<batch>/paired/
 
-Usage:
-    python batch_extract.py
+
 """
 import logging
 import sys
@@ -20,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---- Paths ----
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT    = PROJECT_ROOT / "data_root"
 DATA_TARGET  = PROJECT_ROOT / "data_target"
 

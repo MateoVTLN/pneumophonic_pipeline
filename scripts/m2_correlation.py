@@ -16,8 +16,7 @@ Outputs:
     ├── time_resolved/               — per-subject cross-correlation plots
     └── m2_report.txt                — text summary of findings
 
-Usage:
-    python m2_correlation.py
+
 """
 import logging
 from pathlib import Path
@@ -34,7 +33,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # ---- Paths ----
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_TARGET  = PROJECT_ROOT / "data_target"
 
 BATCHES = ["healthy_subjects", "pathological_subjects"]

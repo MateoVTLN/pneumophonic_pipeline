@@ -1,302 +1,216 @@
-# Pneumophonic Analysis Pipeline (not definitive : will include other methods, analysis in the future)
+# Pneumophonic Analysis Pipeline
 
-Modular Python pipeline for the integrated analysis of respiratory-phonatory functions + speech signals.
-Opto-electronic Plethysmography + Audio Acquisitions made by Bianca ZOCCO
-## Description
+Modular Python pipeline for the integrated analysis of respiratory-phonatory functions.
+Combines Optoelectronic Plethysmography (OEP) chest wall kinematics with acoustic voice signals.
 
-This pipeline is based on the Master's thesis work:
-> **"Integrated Analysis of Respiratory–Phonatory Functions: Normative Patterns Across Sex and Age"** > Bianca Zocco, Politecnico di Milano, A.Y : 2024-2025
+## Context
 
-It allows the analysis of combined data from:
-- **OEP (Optoelectronic Plethysmography)**: chest wall kinematics
-- **Acoustic signals**: voice recorded during vocal tasks
+This pipeline builds on the Master's thesis:
+> **"Integrated Analysis of Respiratory-Phonatory Functions: Normative Patterns Across Sex and Age"**
+> Bianca Zocco, Politecnico di Milano, 2024-2025
 
-### Supported Vocal Tasks
+The current work extends the original analysis toward **respiratory-acoustic correlation modeling**: extracting time-aligned paired features from OEP and audio signals, computing cross-domain correlations, and preparing the ground for predictive models (audio-to-respiratory and respiratory-to-audio).
 
-| Task | Code | Description |
-|-------|------|-------------|
-| A-Long | AL | Sustained vowel /a/ |
-| Vowels | - | 5 vowels × 5 seconds |
-| Sentences | - | 5 predefined sentences |
-| Text | TXT | Balanced text reading |
-| Rolled | R | Sustained alveolar trill |
-| Glissando | AG | Vocal glide (low → high) |
-| A-Softly | - | Soft emission of /a/ |
+## Pipeline Overview
+
+The pipeline operates in milestones:
+
+| Milestone | Status | Description |
+|-----------|--------|-------------|
+| **M1** | Done | Paired feature extraction (time-aligned audio + OEP matrices) |
+| **M2** | Done | Exploratory correlation analysis (global, time-resolved, FRC-aligned) |
+| **M3** | Planned | Baseline regression models (audio to respiratory) |
+| **M4** | Planned | Sequence models (LSTM / 1D-CNN) |
+| **M5** | Planned | Compartmental body mapping from audio |
 
 ## Installation
 
-#### -> Clone the repository
+```bash
+# Clone the repository
 git clone <repo-url>
 cd pneumophonic_pipeline
 
-#### -> Create a virtual environment (recommended)
+# Create a virtual environment (recommended)
 python -m venv venv
-source venv/bin/activate  # Linux/Mac
--> or: venv\Scripts\activate  # Windows
+source venv/bin/activate        # Linux/Mac
+# or: venv\Scripts\activate     # Windows
 
-#### -> Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-#### -> Install the package in development mode
+# Install the package in development mode
 pip install -e .
-
-
-## Main Dependencies
-- **numpy, scipy, pandas: scientific computing**
-  
-- **librosa: audio processing**
-  
--**noisereduce: noise reduction**
-  
--**praat-parselmouth:** Python interface for Praat
-  
--**matplotlib:** visualization
-  
--**openpyxl:** Excel read/write
-
-📁 Data Structure
-```
-data_root/
-│   ├── singer_subjects/
-│   │    └── AAAADDMM_SubjectID/   # Format: YYYYDDMM_SubjectID
-│   │        ├── csv/
-│   │        │    └── SubjectID_taskname.csv    ← one OEP CSV per task
-│   │        ├── renders/
-│   │        │    └── taskname.wav              ← audio filename = task label
-│   │        ├── sync_signal.wav
-│   │        └── SubjectID_audio.xlsx          ← same Timing sheet format
-│   │
-│   ├── notsinger_subjects/
-│   │    └── AAAADDMM_SubjectID/   # Format: YYYYDDMM_SubjectID
-│   │        ├── csv/
-│   │        │    └── SubjectID_taskname.csv    ← one OEP CSV per task
-│   │        ├── renders/
-│   │        │    └── taskname.wav              ← audio filename = task label
-│   │        ├── sync_signal.wav
-│   │        └── SubjectID_audio.xlsx          ← same Timing sheet format
-
-│   ├──pathological_subjects/
-│   |   (...)
-│   |
-│   └──healthy_subjects/           
-│       ├──AAAADDMM_SubjectID/           
-│       │   ├── csv/
-│       │   │    └── SubjectID_vocali.csv   # OEP data
-│       │   ├── renders/
-│       │   │   ├── a.wav            # Vowel A
-│       │   │   ├── r.wav            # Rolled R
-│       │   │   └── (...)            # Other Tasks
-│       │   ├── sync_signal.wav      # Sync signal
-│       │   └── SubjectID_audio.xlsx      # Timings 
-│       └──AAAADDMM_SubjectID/ (same pattern for any other subject)
-│           └── (...)
-│
-data_target/ (where all plots and results will be loaded)
-│   ├──pathological_subjects/
-│   └──healthy_subjects/ 
-│   └──singer_subjects/ 
-│   └──notsinger_subjects/ 
 ```
 
-## Usage Examples
-##### Here are some Python scripts made fo a subject-wise or batch analysis :
-### Quick Analysis (subject-wise)
+## Dependencies
 
-##### 1) Import the subject folder in the gitignored section 
+Core: numpy, scipy, pandas, librosa, soundfile, noisereduce, praat-parselmouth, matplotlib, seaborn, openpyxl, tqdm, h5py
+
+## Data Structure
 
 ```
-data_root/
-│   ├── singer_subjects/
-│   │       └── (...)       <-- here
-│   ├── notsinger_subjects/
-│   │       └── (...)       <-- here
+pneumophonic_pipeline/
+├── data_root/                          # Source data (read-only)
 │   ├── healthy_subjects/
-│   │       └── (...)       <-- here
-│   ├── pathological_subjects/
-│   │       └── (...)       <-- here
-
-```
-##### 2) 
-
-### Detailed Usage
-
-```python
-from pneumophonic_analysis import (
-    PneumophonicPipeline, 
-    create_config,
-    VowelAnalyzer,
-    Visualizer
-)
-from pathlib import Path
-
-# 1. config
-config = create_config(
-    data_root=Path("/path/to/data"),
-    output_root=Path("/path/to/output")
-)
-
-# 2. Init piepline
-pipeline = PneumophonicPipeline(config)
-
-# 3. Analyze subject specific
-subject_result = pipeline.analyze_subject(
-    "20260218_XxXx",
-    tasks=['vowel', 'trill']
-)
-
-# results
-for task_name, result in subject_result.results.items():
-    print(f"\n{task_name}:")
-    print(f"  duration: {result.duration_sec:.2f}s")
-    print(f"  F0 mean: {result.acoustic_result.pitch.mean_f0:.1f} Hz")
-    print(f"  HNR: {result.acoustic_result.voice_quality.hnr:.1f} dB")
-
-# 4. analysis batch
-batch_result = pipeline.analyze_batch(progress=True)
-
-# 5. Export
-pipeline.export_results(batch_result, "all_results.xlsx")
-pipeline.generate_report(batch_result, "report/")
-```
-
-### Individual Audio File Analysis
-
-```python
-from pneumophonic_analysis import (
-    AudioProcessor, 
-    PraatAnalyzer,
-    quick_analysis
-)
-import librosa
-
-#  audio loading
-audio, sr = librosa.load("vowel_a.wav", sr=48000)
-
-# method 1: fast analysis
-df = quick_analysis(audio, sr)
-print(df)
-
-# method 2: detailed analysis
-processor = AudioProcessor()
-analyzer = PraatAnalyzer()
-
-# pre-procesing
-audio_clean = processor.reduce_noise(audio, sr)
-audio_pe = processor.apply_pre_emphasis(audio_clean)
-
-# feature extraction
-result = analyzer.analyze_signal(audio_pe, sr)
-
-print(f"F0: {result.pitch.mean_f0:.1f} ± {result.pitch.std_f0:.1f} Hz")
-print(f"Jitter: {result.perturbation.local_jitter*100:.2f}%")
-print(f"Shimmer: {result.perturbation.local_shimmer*100:.2f}%")
-print(f"HNR: {result.voice_quality.hnr:.1f} dB")
-print(f"DSI: {result.voice_quality.dsi:.2f}")
+│   │   └── YYYYMMDD_SubjectID/         # One folder per subject
+│   │       ├── csv/                    # OEP data files
+│   │       │   ├── SubjectID_Vocali.csv
+│   │       │   ├── SubjectID_phonema_a_2.csv
+│   │       │   ├── SubjectID_frasi.csv
+│   │       │   ├── SubjectID_testo.csv
+│   │       │   ├── SubjectID_r.csv
+│   │       │   └── ...
+│   │       ├── renders/                # Audio files rendered from Reaper
+│   │       │   ├── a.wav
+│   │       │   ├── phonema_a_2.wav
+│   │       │   ├── testo.wav
+│   │       │   └── ...
+│   │       ├── sync_signal.wav         # Synchronization pulse
+│   │       └── SubjectID_audio.xlsx    # Timing sheet (start, stop, falling edge)
+│   └── pathological_subjects/
+│       └── ...
+│
+├── data_target/                        # Outputs
+│   ├── healthy_subjects/
+│   │   ├── paired/                     # HDF5 paired feature files (M1)
+│   │   │   ├── SubjectID_taskname.h5
+│   │   │   └── extraction_summary.csv
+│   │   ├── figures/
+│   │   │   └── paired/                 # Per-subject PDF plots
+│   │   └── m2_correlation/             # M2 analysis outputs
+│   │       ├── global_summary.csv
+│   │       ├── global_correlation_matrix.pdf
+│   │       ├── frc_shifts.pdf
+│   │       ├── time_resolved/
+│   │       └── m2_report.txt
+│   └── pathological_subjects/
+│       └── ...
+│
+├── pneumophonic_analysis/              # Core Python package
+│   ├── config.py                       # Centralized configuration
+│   ├── io_utils.py                     # File I/O (OEP, audio, Excel)
+│   ├── sync.py                         # OEP-Audio synchronization
+│   ├── audio_processing.py             # Audio processing (noise, STFT, F0)
+│   ├── acoustic_features.py            # Praat-based feature extraction
+│   ├── segmentation.py                 # FRC / novelty segmentation
+│   ├── task_analyzers.py               # Task-specific analyzers
+│   ├── paired_features.py              # M1: Paired feature extraction
+│   ├── visualization.py                # Plotting utilities
+│   └── pipeline.py                     # Orchestration
+│
+├── scripts/                            # Standalone analysis scripts
+│   ├── test_paired.py                  # Interactive single extraction
+│   ├── batch_extract.py                # Batch paired extraction (all subjects)
+│   ├── explore_paired.py               # Interactive HDF5 exploration + plots
+│   ├── batch_plot_paired.py            # Batch PDF generation from HDF5
+│   ├── m2_correlation.py               # M2 correlation analysis
+│   └── tools.py                        # Diagnostic utilities
+│
+└── README.md
 ```
 
-### Visualization
+## OEP Column Mapping
 
-```python
-from pneumophonic_analysis import Visualizer, DataLoader
-import librosa
+The `.csv`/`.dat` files contain space-separated columns loaded with these labels:
 
-# load data
-loader = DataLoader("20260218_XxXx")
-audio, sr = loader.load_audio("a.wav")
-# Visualize
-viz = Visualizer()
-# Waveform
-fig = viz.plot_waveform(audio, sr, title="Vowel /a/ - XxXx")
-# Spectrogram
-fig = viz.plot_spectrogram(audio, sr)
-# Mel-spectrogram
-fig = viz.plot_mel_spectrogram(audio, sr)
-# Save
-viz.save_figure(fig, "output/spectrogram.png")
+| Column | Label | Physical quantity |
+|--------|-------|-------------------|
+| 1 | `time` | Time (s) |
+| 2 | `A` | Vrcp — Pulmonary rib cage volume (L) |
+| 3 | `B` | Vrca — Abdominal rib cage volume (L) |
+| 4 | `C` | Vab — Abdominal volume (L) |
+| 5 | `tot_vol` | Vcw — Total chest wall volume (L) |
+| 6 | `sync` | Synchronization signal |
+
+Two-compartment model (Zocco thesis): **Vrc = A + B**, **Vab = C**, verified by A + B + C = tot_vol.
+
+## Vocal Tasks (Zocco Protocol)
+
+| Task label | Audio file | OEP CSV suffix | Description |
+|------------|------------|----------------|-------------|
+| `a` | `a.wav` | `Vocali` | Sustained /a/ (5s) |
+| `e`, `i`, `o`, `u` | `{vowel}.wav` | `Vocali` | Sustained vowels (5s each) |
+| `a_2` | `phonema_a_2.wav` | `phonema_a_2` | Maximum phonation time /a/ |
+| `a_3` | `phonema_a_3.wav` | `phonema_a_3` | Soft phonation /a/ |
+| `a_7` | `phonema_a_7.wav` | `phonema_a_7` | Vocal glide |
+| `r` | `r.wav` | `r` | Sustained alveolar trill |
+| `f_1`..`f_5` | `phrase_{n}.wav` | `frasi` | Sentence reading |
+| `testo` | `testo.wav` | `testo` | Balanced text reading |
+
+## Quick Start
+
+### 1. Extract paired features (single subject)
+
+```bash
+python scripts/test_paired.py
 ```
 
-### FRC Segmentation
+Interactive prompts guide you through batch, subject, and task selection. Produces an HDF5 file in `data_target/<batch>/paired/`.
 
-```python
-from pneumophonic_analysis import FRCSegmenter, TrillAnalyzer
+### 2. Batch extraction (all subjects)
 
-analyzer = TrillAnalyzer()
-
-result = analyzer.analyze(
-    audio=audio,
-    sr=sr,
-    subject_id="RoDi",
-    frc_cross_time=3.5 
-)
-
-print(f"Fréquence de modulation:")
-print(f"  Full: {result.extra_metrics['mod_freq_full']:.1f} Hz")
-print(f"  Above FRC: {result.extra_metrics['mod_freq_above_frc']:.1f} Hz")
-print(f"  Below FRC: {result.extra_metrics['mod_freq_below_frc']:.1f} Hz")
+```bash
+python scripts/batch_extract.py
 ```
 
-## Extracted Metrics
+Processes all subjects and tasks automatically. Skips already-extracted files. Produces `extraction_summary.csv`.
 
-### Pitch Parameters (F0)
--`mean_f0:` Mean fundamental frequency (Hz)
--``std_f0: Standard deviation of F0
--`min_f0, max_f0:` F0 extrema
--`range_f0:` F0 range
-### Frequency Perturbation (Jitter)
--`local_jitter:` Local jitter (%)
--`rap_jitter:` Relative Average Perturbation
--`ppq5_jitter:` 5-point Period Perturbation Quotient
--`ddp_jitter:` Difference of Differences of Periods
-### Amplitude Perturbation (Shimmer)
--`local_shimmer:` Local shimmer (%)
--`apq3_shimmer, apq5_shimmer, apq11_shimmer:` Amplitude Perturbation Quotients
--`dda_shimmer:` Difference of Differences of Amplitudes
-### Voice Quality
--`hnr:` Harmonics-to-Noise Ratio (dB)
--`dsi:` Dysphonia Severity Index
--`intensity_mean, intensity_min:` Intensity (dB)
--`mpt:` Maximum Phonation Time (s)
-### Formants
--`f1_mean, f2_mean, f3_mean:` Mean formants (Hz)
--`f1_median, f2_median, f3_median:` Median formants
-### Specific Metrics
--`Rolled R:` mod_freq_full/above/below (modulation frequency)
--`Glissando:` P1_meanF0, P2_meanF0, F0_range
+### 3. Generate plots
 
-## Pipeline Architecture
+```bash
+# Single file (interactive)
+python scripts/explore_paired.py
 
+# All HDF5 files at once
+python scripts/batch_plot_paired.py
 ```
-pneumophonic_analysis/
-├── config.py           # Centralized configuration
-├── io_utils.py         # File read/write
-├── sync.py             # OEP/Audio synchronization
-├── audio_processing.py # Audio processing
-├── acoustic_features.py # Praat extraction
-├── segmentation.py     # FRC/novelty segmentation
-├── task_analyzers.py   # Task-specific analyzers
-├── visualization.py    # Visualization
-└── pipeline.py         # Orchestration
+
+### 4. Run correlation analysis (M2)
+
+```bash
+python scripts/m2_correlation.py
 ```
+
+Produces correlation heatmaps, scatter plots, time-resolved analysis, and FRC crossing analysis.
+
+### 5. Diagnostics
+
+```bash
+python scripts/tools.py
+```
+
+Utility commands: inspect OEP headers, check sync peaks, verify data integrity.
+
+## Key Parameters
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Audio sample rate | 48 kHz | Acquisition protocol |
+| OEP kinematic rate | 50 Hz | OEP system |
+| STFT hop length | 720 samples (~15 ms) | Config |
+| Audio feature rate | ~66 fps | 48000 / 720 |
+| OEP flow LP filter | 4th-order Butterworth, 10 Hz | Zocco thesis |
+| Flow calibration factor | k = 0.916 | Zocco thesis (Section 4.1.3) |
+| F0 range (cleanup) | 60-350 Hz | Physiological bounds |
+
+## Synchronization Method
+
+Audio and OEP are synchronized via a 1-second rectangular pulse recorded on both systems.
+The `falling edge` column in each subject's Excel timing file provides the OEP time (in seconds) of the sync pulse for each task. This is the primary sync method, bypassing unreliable peak-pairing heuristics.
 
 ## References
 
-If you use this pipeline, please cite:
-
 ```bibtex
 @mastersthesis{zocco2025pneumophonic,
-  title={Integrated Analysis of Respiratory-Phonatory Functions: 
-         Normative Patterns Across Sex and Age},
-  author={Zocco, Bianca},
-  year={2025},
-  school={Politecnico di Milano},
-  advisor={Lo Mauro, Antonella}
+  title   = {Integrated Analysis of Respiratory-Phonatory Functions:
+             Normative Patterns Across Sex and Age},
+  author  = {Zocco, Bianca},
+  year    = {2025},
+  school  = {Politecnico di Milano},
+  advisor = {Lo Mauro, Antonella}
 }
 ```
 
-## Licence
+## License
 
-This project is distributed under the MIT license.
-
-## Contributors
-
-Contributions are welcome! Please open an issue to discuss major changes.
+MIT
